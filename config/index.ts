@@ -181,6 +181,10 @@ export default defineConfig<'vite'>(async (merge, _env) => {
             target: 'http://localhost:3000',
             changeOrigin: true,
           },
+          '/admin.html': {
+            target: 'http://localhost:3000',
+            changeOrigin: true,
+          },
         },
       },
       miniCssExtractPluginOption: {
