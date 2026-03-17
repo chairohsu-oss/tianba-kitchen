@@ -227,66 +227,135 @@ const HomePage: FC = () => {
   }
 
   const typeColors = {
-    meat: 'bg-indigo-500',
+    meat: 'bg-gray-700',
     vegetable: 'bg-emerald-500',
     soup: 'bg-blue-500'
   }
 
   return (
     <View className="flex flex-col h-screen bg-gray-50">
-      {/* 消息区域 */}
-      <ScrollView 
-        scrollY 
-        className="flex-1 px-4 py-4"
-        scrollIntoView={scrollViewRef.current}
-        scrollWithAnimation
-      >
-        {/* 欢迎消息 */}
+      {/* 顶部输入区域 - 紧贴导航栏 */}
+      <View className="bg-white border-b border-gray-100 p-4">
+        {/* 欢迎标题 */}
         {messages.length === 0 && (
-          <View className="flex flex-col items-center justify-center py-12">
-            <View className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
-              <Sparkles size={32} color="#6366F1" />
+          <View className="flex flex-col items-center justify-center py-8">
+            <View className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+              <Sparkles size={28} color="#6B7280" />
             </View>
-            <Text className="block text-lg font-semibold text-gray-800 mb-2">
-              天霸家厨房
+            <Text className="block text-lg font-semibold text-gray-800 mb-1">
+              天霸私厨
             </Text>
-            <Text className="block text-sm text-gray-500 text-center">
-              告诉我您今天有什么食材{'\n'}我来为您推荐今日菜单
+            <Text className="block text-xs text-gray-400">
+              告诉我您的食材，我来推荐今日菜单
             </Text>
           </View>
         )}
 
-        {/* 消息列表 */}
-        {messages.map(msg => (
-          <View key={msg.id} id={`msg-${msg.id}`} className="mb-4">
-            {msg.type === 'user' ? (
-              <View className="flex flex-row justify-end">
-                <View className="bg-indigo-500 rounded-2xl rounded-br-sm px-4 py-3 max-w-[80%]">
-                  <Text className="text-white text-sm leading-relaxed">{msg.content}</Text>
-                </View>
+        {/* 语音转文字结果显示 */}
+        {messages.length > 0 && (
+          <ScrollView 
+            scrollY 
+            className="max-h-48 mb-3"
+            scrollIntoView={scrollViewRef.current}
+            scrollWithAnimation
+          >
+            {messages.map(msg => (
+              <View key={msg.id} id={`msg-${msg.id}`} className="mb-3">
+                {msg.type === 'user' ? (
+                  <View className="flex flex-row justify-end">
+                    <View className="bg-gray-800 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%]">
+                      <Text className="text-white text-sm leading-relaxed">{msg.content}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View className="flex flex-row justify-start">
+                    <View className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%]">
+                      <Text className="text-gray-800 text-sm leading-relaxed">{msg.content}</Text>
+                    </View>
+                  </View>
+                )}
               </View>
-            ) : (
-              <View className="flex flex-row justify-start">
-                <View className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] shadow-sm">
-                  <Text className="text-gray-800 text-sm leading-relaxed">{msg.content}</Text>
+            ))}
+            {isLoading && (
+              <View className="flex flex-row justify-start mb-3">
+                <View className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5">
+                  <View className="flex flex-row items-center">
+                    <Loader size={14} color="#6B7280" className="animate-spin" />
+                    <Text className="text-gray-500 text-sm ml-2">正在思考...</Text>
+                  </View>
                 </View>
               </View>
             )}
-          </View>
-        ))}
-
-        {/* 加载状态 */}
-        {isLoading && (
-          <View className="flex flex-row justify-start mb-4">
-            <View className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-              <View className="flex flex-row items-center">
-                <Loader size={16} color="#6366F1" className="animate-spin" />
-                <Text className="text-gray-500 text-sm ml-2">正在思考...</Text>
-              </View>
-            </View>
-          </View>
+          </ScrollView>
         )}
 
+        {/* 输入框区域 - 加高50% */}
+        <View className="flex flex-row items-center gap-2">
+          {/* 左侧：语音按钮 / 发送按钮 */}
+          {inputMode === 'voice' ? (
+            <View
+              className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-gray-800' : 'bg-gray-100'}`}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+            >
+              <Mic size={22} color={isRecording ? '#fff' : '#6B7280'} />
+            </View>
+          ) : (
+            <View
+              className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-gray-800' : 'bg-gray-100'}`}
+              onClick={textInput.trim() ? sendMessage : undefined}
+            >
+              <Send size={20} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
+            </View>
+          )}
+
+          {/* 中间：输入区域 */}
+          {inputMode === 'voice' ? (
+            <View
+              className="flex-1 bg-gray-100 rounded-full px-5 py-4 min-h-[52px] flex items-center justify-center"
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+            >
+              <Text className={`text-sm ${isRecording ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+                {isRecording ? '松开发送，上滑取消' : '按住 说话'}
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-1 bg-gray-100 rounded-full px-5 py-0 min-h-[52px] flex items-center">
+              <Input
+                className="w-full text-sm"
+                placeholder="告诉我您有什么食材..."
+                value={textInput}
+                onInput={(e) => setTextInput(e.detail.value)}
+                onConfirm={sendMessage}
+                confirmType="send"
+              />
+            </View>
+          )}
+
+          {/* 右侧：模式切换按钮 */}
+          <View
+            className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+            onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
+          >
+            {inputMode === 'voice' ? (
+              <Keyboard size={20} color="#6B7280" />
+            ) : (
+              <Mic size={20} color="#6B7280" />
+            )}
+          </View>
+        </View>
+
+        {/* H5提示 */}
+        {!isWeapp && inputMode === 'voice' && (
+          <Text className="block text-xs text-gray-400 text-center mt-2">
+            H5端不支持录音，请切换键盘输入
+          </Text>
+        )}
+      </View>
+
+      {/* 推荐结果和制作方式 */}
+      <ScrollView scrollY className="flex-1 p-4">
         {/* 推荐结果 */}
         {!isLoading && recommendResult && !showCookingDetail && (
           <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
@@ -300,7 +369,7 @@ const HomePage: FC = () => {
                   {recommendResult[type].map(dish => (
                     <View
                       key={dish.id}
-                      className={`flex-1 rounded-xl overflow-hidden border-2 ${selectedDishes[type]?.id === dish.id ? 'border-indigo-500' : 'border-transparent'}`}
+                      className={`flex-1 rounded-xl overflow-hidden border-2 ${selectedDishes[type]?.id === dish.id ? 'border-gray-800' : 'border-transparent'}`}
                       onClick={() => selectDish(type, dish)}
                     >
                       <Image
@@ -328,7 +397,7 @@ const HomePage: FC = () => {
                 <Text className="text-gray-600 text-sm font-medium">重新选择</Text>
               </View>
               <View
-                className={`flex-1 bg-indigo-500 rounded-full py-2.5 flex items-center justify-center ${loadingCooking ? 'opacity-50' : ''}`}
+                className={`flex-1 bg-gray-800 rounded-full py-2.5 flex items-center justify-center ${loadingCooking ? 'opacity-50' : ''}`}
                 onClick={loadingCooking ? undefined : confirmSelection}
               >
                 {loadingCooking ? (
@@ -359,7 +428,7 @@ const HomePage: FC = () => {
             {cookingMethods.map((method, index) => (
               <View key={index} className="bg-white rounded-2xl p-4 shadow-sm mb-3">
                 <View className="flex flex-row items-center mb-3">
-                  <ChefHat size={18} color="#6366F1" />
+                  <ChefHat size={18} color="#6B7280" />
                   <Text className="block text-base font-semibold text-gray-800 ml-2">
                     {method.name}
                   </Text>
@@ -388,8 +457,8 @@ const HomePage: FC = () => {
                 </View>
 
                 {method.tips && (
-                  <View className="bg-indigo-50 rounded-lg p-2">
-                    <Text className="block text-xs text-indigo-600">💡 {method.tips}</Text>
+                  <View className="bg-gray-100 rounded-lg p-2">
+                    <Text className="block text-xs text-gray-600">💡 {method.tips}</Text>
                   </View>
                 )}
               </View>
@@ -398,77 +467,8 @@ const HomePage: FC = () => {
         )}
 
         {/* 底部占位 */}
-        <View className="h-20" />
+        <View className="h-4" />
       </ScrollView>
-
-      {/* 底部输入框 - 豆包风格 */}
-      <View 
-        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-3 py-2"
-        style={{ bottom: 50 }}
-      >
-        <View className="flex flex-row items-center gap-2">
-          {/* 左侧：语音按钮 / 发送按钮 */}
-          {inputMode === 'voice' ? (
-            <View
-              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-indigo-500' : 'bg-indigo-50'}`}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-            >
-              <Mic size={20} color={isRecording ? '#fff' : '#6366F1'} />
-            </View>
-          ) : (
-            <View
-              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-indigo-500' : 'bg-gray-100'}`}
-              onClick={textInput.trim() ? sendMessage : undefined}
-            >
-              <Send size={18} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
-            </View>
-          )}
-
-          {/* 中间：输入区域 */}
-          {inputMode === 'voice' ? (
-            <View
-              className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 min-h-[40px] flex items-center justify-center"
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-            >
-              <Text className={`text-sm ${isRecording ? 'text-indigo-500 font-medium' : 'text-gray-400'}`}>
-                {isRecording ? '松开发送，上滑取消' : '按住 说话'}
-              </Text>
-            </View>
-          ) : (
-            <View className="flex-1 bg-gray-50 rounded-full px-4 py-0 min-h-[40px] flex items-center">
-              <Input
-                className="w-full text-sm"
-                placeholder="告诉我您有什么食材..."
-                value={textInput}
-                onInput={(e) => setTextInput(e.detail.value)}
-                onConfirm={sendMessage}
-                confirmType="send"
-              />
-            </View>
-          )}
-
-          {/* 右侧：模式切换按钮 */}
-          <View
-            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-            onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
-          >
-            {inputMode === 'voice' ? (
-              <Keyboard size={18} color="#6B7280" />
-            ) : (
-              <Mic size={18} color="#6B7280" />
-            )}
-          </View>
-        </View>
-
-        {/* H5提示 */}
-        {!isWeapp && inputMode === 'voice' && (
-          <Text className="block text-xs text-gray-400 text-center mt-1">
-            H5端不支持录音，请切换键盘输入
-          </Text>
-        )}
-      </View>
     </View>
   )
 }

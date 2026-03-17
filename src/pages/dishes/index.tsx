@@ -9,7 +9,8 @@ import './index.css'
 interface Dish {
   id: string
   name: string
-  image: string
+  images: string[]
+  image?: string
   category: string
   cuisine?: string
   calories?: number
@@ -67,7 +68,7 @@ const DishesPage: FC = () => {
   const fetchDishes = async () => {
     setLoading(true)
     try {
-      const params: any = { category: selectedCategory }
+      const params: Record<string, string> = { category: selectedCategory }
       if (selectedCategory === 'chinese') {
         params.cuisine = selectedCuisine
       }
@@ -75,28 +76,15 @@ const DishesPage: FC = () => {
         url: '/api/dishes',
         data: params
       })
-      setDishes((result as any).data || [])
+      console.log('获取菜品结果:', result)
+      const dishData = (result as any).data || []
+      setDishes(dishData)
     } catch (error) {
       console.error('获取菜品失败', error)
-      // 使用模拟数据
-      setDishes(getMockDishes())
+      setDishes([])
     } finally {
       setLoading(false)
     }
-  }
-
-  // 模拟数据
-  const getMockDishes = (): Dish[] => {
-    const mockNames = ['红烧排骨', '糖醋里脊', '宫保鸡丁', '水煮鱼', '麻婆豆腐', '回锅肉']
-    return mockNames.map((name, index) => ({
-      id: `dish-${index}`,
-      name,
-      image: `https://picsum.photos/200?random=${index}`,
-      category: selectedCategory,
-      cuisine: selectedCuisine,
-      calories: Math.floor(Math.random() * 500) + 200,
-      description: '经典家常菜，营养丰富，老少皆宜。'
-    }))
   }
 
   // 跳转详情页
@@ -106,23 +94,26 @@ const DishesPage: FC = () => {
     })
   }
 
-  // 中餐分类电梯导航滚动
-  const handleCuisineScroll = (cuisineId: string) => {
-    setSelectedCuisine(cuisineId)
+  // 获取菜品图片
+  const getDishImage = (dish: Dish) => {
+    if (dish.images && dish.images.length > 0) {
+      return dish.images[0]
+    }
+    return dish.image || 'https://picsum.photos/200?random=' + dish.id
   }
 
   return (
     <View className="flex flex-row h-screen bg-white">
-      {/* 左侧分类导航 */}
-      <View className="w-40 bg-gray-50 flex flex-col">
+      {/* 左侧分类导航 - 加宽25% */}
+      <View className="w-50 bg-gray-50 flex flex-col" style={{ width: '200px' }}>
         <ScrollView scrollY className="flex-1">
           {categories.map(category => (
             <View
               key={category.id}
-              className={`px-4 py-4 flex items-center justify-start ${selectedCategory === category.id ? 'bg-white border-l-2 border-indigo-500' : ''}`}
+              className={`px-4 py-4 flex items-center justify-start ${selectedCategory === category.id ? 'bg-white border-l-2 border-gray-800' : ''}`}
               onClick={() => setSelectedCategory(category.id)}
             >
-              <Text className={`block text-sm ${selectedCategory === category.id ? 'text-indigo-500 font-medium' : 'text-gray-600'}`}>
+              <Text className={`block text-sm ${selectedCategory === category.id ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
                 {category.name}
               </Text>
             </View>
@@ -142,8 +133,8 @@ const DishesPage: FC = () => {
               {chineseCuisines.map(cuisine => (
                 <View
                   key={cuisine.id}
-                  className={`px-3 py-1 rounded-full flex-shrink-0 ${selectedCuisine === cuisine.id ? 'bg-indigo-500' : 'bg-gray-100'}`}
-                  onClick={() => handleCuisineScroll(cuisine.id)}
+                  className={`px-3 py-1.5 rounded-full flex-shrink-0 ${selectedCuisine === cuisine.id ? 'bg-gray-800' : 'bg-gray-100'}`}
+                  onClick={() => setSelectedCuisine(cuisine.id)}
                 >
                   <Text className={`block text-sm ${selectedCuisine === cuisine.id ? 'text-white' : 'text-gray-600'}`}>
                     {cuisine.name}
@@ -175,7 +166,7 @@ const DishesPage: FC = () => {
                 >
                   <Image
                     className="w-full h-32"
-                    src={dish.image}
+                    src={getDishImage(dish)}
                     mode="aspectFill"
                   />
                   <View className="p-3">
@@ -184,7 +175,7 @@ const DishesPage: FC = () => {
                     </Text>
                     <View className="flex flex-row items-center mt-1">
                       <Text className="block text-xs text-gray-400">
-                        {dish.calories}千卡
+                        {dish.calories || 0}千卡
                       </Text>
                     </View>
                   </View>

@@ -8,12 +8,12 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#fff',
-    navigationBarTitleText: '天霸家厨房',
+    navigationBarTitleText: '天霸私厨',
     navigationBarTextStyle: 'black'
   },
   tabBar: {
     color: '#999999',
-    selectedColor: '#FF6B35',
+    selectedColor: '#1F2937',
     backgroundColor: '#ffffff',
     borderStyle: 'black',
     list: [
