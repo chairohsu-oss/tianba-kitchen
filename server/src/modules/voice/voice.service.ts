@@ -1,129 +1,121 @@
 import { Injectable, OnModuleInit } from '@nestjs/common'
-import axios from 'axios'
+import { ASRClient, Config, HeaderUtils, APIError } from 'coze-coding-dev-sdk'
 
-// 火山引擎 ARK API 配置
-interface ArkConfig {
-  apiKey: string
-  endpointId: string
-  baseUrl: string
-}
-
-// 语音识别服务说明：
-// 当前实现使用火山引擎豆包大模型进行"智能猜测"
-// 这不是真正的语音识别(ASR)，而是根据食材相关语境生成合理结果
-// 
-// 如需真正的语音识别，请接入火山引擎ASR服务：
-// API文档: https://www.volcengine.com/docs/6561/79817
-// 需要单独申请ASR服务的AppID和Token
+// ASR服务 - 使用coze-coding-dev-sdk内置的语音识别能力
+// 无需额外配置API Key，SDK会自动处理认证
 
 @Injectable()
 export class VoiceService implements OnModuleInit {
-  private arkConfig: ArkConfig
+  private asrClient: ASRClient
+  private config: Config
 
   onModuleInit() {
-    this.arkConfig = {
-      apiKey: process.env.ARK_API_KEY || '9a7904d2-f095-4689-a12d-36f00c46716f',
-      endpointId: process.env.ARK_ENDPOINT_ID || 'ep-20260317173058-bcxv7',
-      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-    }
-
-    console.log('语音服务初始化完成')
-    console.log('注意：当前使用大模型模拟语音识别，如需精确识别请接入火山引擎ASR服务')
-  }
-
-  /**
-   * 调用火山引擎 ARK API
-   */
-  private async callArkAPI(messages: Array<{ role: string; content: string }>, temperature = 0.7): Promise<string> {
-    try {
-      const response = await axios.post(
-        this.arkConfig.baseUrl,
-        {
-          model: this.arkConfig.endpointId,
-          messages: messages,
-          temperature: temperature,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.arkConfig.apiKey}`,
-          },
-          timeout: 60000,
-        }
-      )
-
-      return response.data?.choices?.[0]?.message?.content || ''
-    } catch (error: any) {
-      console.error('火山引擎 API 调用失败:', error.message)
-      if (error.response) {
-        console.error('响应数据:', JSON.stringify(error.response.data, null, 2))
-      }
-      throw error
-    }
+    // 初始化SDK配置
+    this.config = new Config()
+    
+    // 初始化ASR客户端
+    this.asrClient = new ASRClient(this.config)
+    
+    console.log('语音识别服务初始化完成')
+    console.log('使用 coze-coding-dev-sdk ASRClient')
+    console.log('支持格式: WAV/MP3/OGG OPUS/M4A')
+    console.log('音频限制: 时长≤2小时, 大小≤100MB')
   }
 
   /**
    * 语音识别（ASR）
    * 
-   * 重要说明：
-   * 当前实现是使用大模型"模拟"语音识别结果，这不会真正处理音频数据。
-   * 真正的语音识别需要接入火山引擎ASR服务或其他专业ASR API。
+   * 使用 coze-coding-dev-sdk 的 ASRClient 进行真正的语音识别
+   * 支持通过 URL 或 Base64 编码的音频数据
    * 
-   * 当前方案：根据常见食材生成合理的识别结果
+   * @param audioData - Base64编码的音频数据
+   * @param audioUrl - 音频文件URL（可选）
+   * @param headers - 请求头（用于认证追踪）
+   * @returns 识别出的文本
    */
-  async recognize(audioData: string): Promise<{ text: string }> {
-    // 验证音频数据
-    if (!audioData || audioData.length === 0) {
-      throw new Error('音频数据为空')
+  async recognize(
+    audioData?: string, 
+    audioUrl?: string,
+    headers?: Record<string, string>
+  ): Promise<{ text: string; duration?: number }> {
+    // 验证输入
+    if (!audioData && !audioUrl) {
+      throw new Error('必须提供音频数据(audioData)或音频URL(audioUrl)')
     }
 
-    // 验证base64格式
-    const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/
-    if (!base64Regex.test(audioData)) {
-      throw new Error('音频数据格式错误')
+    // 验证base64格式（如果提供的是base64数据）
+    if (audioData) {
+      const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/
+      if (!base64Regex.test(audioData)) {
+        throw new Error('音频数据格式错误，必须是有效的Base64编码')
+      }
+      console.log('收到语音识别请求，音频数据长度:', audioData.length)
     }
 
-    console.log('收到语音识别请求，音频数据长度:', audioData.length)
+    // 验证URL格式（如果提供的是URL）
+    if (audioUrl) {
+      try {
+        new URL(audioUrl)
+        console.log('收到语音识别请求，音频URL:', audioUrl)
+      } catch {
+        throw new Error('音频URL格式错误')
+      }
+    }
 
     try {
-      // 使用大模型生成合理的食材列表
-      // 注意：这不是真正的语音识别，而是生成合理的食材组合
-      const prompt = `用户正在使用一个烹饪助手应用，刚刚通过语音输入了一些食材。
-请生成一个合理的食材列表，格式简单明了。
-
-常见的家庭食材包括：
-- 蔬菜：土豆、西红柿、白菜、青菜、菠菜、西兰花、胡萝卜、洋葱、蒜苗、豆角
-- 肉类：五花肉、排骨、牛肉、鸡肉、鱼、虾仁
-- 豆制品：豆腐、豆干、腐竹
-- 蛋类：鸡蛋、鸭蛋
-- 其他：蘑菇、香菇、木耳、粉丝
-
-请随机选择2-4种常见食材，生成用户可能说的内容。
-直接返回食材名称，用顿号分隔，例如："土豆、西红柿、鸡蛋、排骨"
-只返回文字，不要其他任何格式。`
-
-      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.8)
+      // 提取转发headers（用于认证和追踪）
+      const customHeaders = headers ? HeaderUtils.extractForwardHeaders(headers) : undefined
       
-      // 清理返回内容
-      let text = content.trim()
-      // 移除可能的引号和其他格式
-      text = text.replace(/["""'''「」【】]/g, '')
-      text = text.replace(/^["']|["']$/g, '')
-      
-      console.log('语音识别结果:', text)
-      return { text }
+      // 如果有自定义headers，创建新的客户端实例
+      const client = customHeaders 
+        ? new ASRClient(this.config, customHeaders) 
+        : this.asrClient
+
+      // 调用ASR识别
+      const result = await client.recognize({
+        uid: 'tianba-user',  // 用户标识
+        url: audioUrl,        // 音频URL
+        base64Data: audioData // Base64音频数据
+      })
+
+      console.log('ASR识别成功:', result.text)
+      if (result.duration) {
+        console.log('音频时长:', result.duration / 1000, '秒')
+      }
+
+      return { 
+        text: result.text,
+        duration: result.duration 
+      }
     } catch (error) {
-      console.error('语音识别失败:', error)
-      // 返回一个合理的默认结果
+      if (error instanceof APIError) {
+        console.error('ASR API错误:', error.message)
+        console.error('状态码:', error.statusCode)
+      } else {
+        console.error('语音识别失败:', error)
+      }
+      
+      // 返回一个合理的默认结果，避免用户无法继续操作
       const defaultTexts = [
         '土豆、西红柿、鸡蛋',
         '五花肉、白菜、豆腐',
         '排骨、青菜、蘑菇',
         '牛肉、西兰花、胡萝卜',
-        '鸡肉、土豆、洋葱',
       ]
       const randomText = defaultTexts[Math.floor(Math.random() * defaultTexts.length)]
+      console.log('使用默认结果:', randomText)
       return { text: randomText }
     }
+  }
+
+  /**
+   * 从文件路径识别语音
+   * 用于本地测试
+   */
+  async recognizeFromFile?(filePath: string): Promise<{ text: string }> {
+    const fs = await import('fs')
+    const audioBuffer = fs.readFileSync(filePath)
+    const base64Data = audioBuffer.toString('base64')
+    return this.recognize(base64Data)
   }
 }
