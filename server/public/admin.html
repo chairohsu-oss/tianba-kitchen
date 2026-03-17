@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>天霸家厨房 - 管理后台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .modal-overlay { background: rgba(0,0,0,0.5); }
+    .ingredient-tag { display: inline-flex; align-items: center; padding: 4px 12px; background: #FFF4ED; border-radius: 9999px; margin: 4px; font-size: 14px; color: #FF6B35; }
+    .step-item { display: flex; align-items: flex-start; margin-bottom: 12px; }
+    .step-number { width: 24px; height: 24px; background: #FF6B35; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 12px; flex-shrink: 0; }
+    .image-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-right: 8px; }
+    .modal-body { max-height: 70vh; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="app">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center">
+          <span class="text-2xl mr-2">🍳</span>
+          <h1 class="text-xl font-bold text-gray-800">天霸家厨房 - 管理后台</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-gray-500">菜品总数: <span id="total-count" class="font-semibold text-orange-500">0</span></span>
+          <button onclick="openAddModal()" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition flex items-center gap-2">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            添加菜品
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 筛选栏 -->
+    <div class="max-w-7xl mx-auto px-4 py-4">
+      <div class="bg-white rounded-xl p-4 shadow-sm flex flex-wrap gap-4 items-center">
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-600">分类:</label>
+          <select id="filter-category" onchange="loadDishes()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">全部分类</option>
+            <option value="chinese">中餐</option>
+            <option value="breakfast">早餐</option>
+            <option value="snack">点心</option>
+            <option value="dessert">甜点</option>
+            <option value="drink">饮料</option>
+            <option value="western">西餐</option>
+            <option value="japanese">日餐</option>
+            <option value="korean">韩餐</option>
+            <option value="southeast">东南亚</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-600">菜系:</label>
+          <select id="filter-cuisine" onchange="loadDishes()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">全部菜系</option>
+            <option value="tianba">天霸家自制</option>
+            <option value="jiangzhe">江浙菜</option>
+            <option value="wenzhou">温州菜</option>
+            <option value="yue">粤菜</option>
+            <option value="dongbei">东北菜</option>
+            <option value="hunan">湖南菜</option>
+            <option value="yunnan">云南菜</option>
+            <option value="other">其它</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 flex-1">
+          <input type="text" id="search-name" placeholder="搜索菜品名称..." class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500" onkeyup="if(event.keyCode===13)loadDishes()">
+          <button onclick="loadDishes()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">搜索</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 菜品列表 -->
+    <div class="max-w-7xl mx-auto px-4 pb-8">
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">图片</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">菜名</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">分类</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">菜系</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">热量</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">营养</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">描述</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">操作</th>
+            </tr>
+          </thead>
+          <tbody id="dishes-tbody">
+            <tr>
+              <td colspan="8" class="px-4 py-8 text-center text-gray-400">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 添加/编辑弹窗 -->
+    <div id="dish-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+      <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 id="modal-title" class="text-lg font-semibold text-gray-800">添加菜品</h2>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body p-6">
+          <form id="dish-form">
+            <input type="hidden" id="dish-id">
+            
+            <!-- 基本信息 -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">菜名 *</label>
+                <input type="text" id="dish-name" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">分类 *</label>
+                <select id="dish-category" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                  <option value="chinese">中餐</option>
+                  <option value="breakfast">早餐</option>
+                  <option value="snack">点心</option>
+                  <option value="dessert">甜点</option>
+                  <option value="drink">饮料</option>
+                  <option value="western">西餐</option>
+                  <option value="japanese">日餐</option>
+                  <option value="korean">韩餐</option>
+                  <option value="southeast">东南亚</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 菜系（仅中餐显示） -->
+            <div id="cuisine-field" class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">菜系</label>
+              <select id="dish-cuisine" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">请选择</option>
+                <option value="tianba">天霸家自制</option>
+                <option value="jiangzhe">江浙菜</option>
+                <option value="wenzhou">温州菜</option>
+                <option value="yue">粤菜</option>
+                <option value="dongbei">东北菜</option>
+                <option value="hunan">湖南菜</option>
+                <option value="yunnan">云南菜</option>
+                <option value="other">其它</option>
+              </select>
+            </div>
+
+            <!-- 图片URL -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL（每行一个）</label>
+              <textarea id="dish-images" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"></textarea>
+            </div>
+
+            <!-- 营养信息 -->
+            <div class="grid grid-cols-4 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">热量(千卡)</label>
+                <input type="number" id="dish-calories" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">蛋白质(g)</label>
+                <input type="number" id="dish-protein" step="0.1" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">碳水(g)</label>
+                <input type="number" id="dish-carbs" step="0.1" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">脂肪(g)</label>
+                <input type="number" id="dish-fat" step="0.1" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+              </div>
+            </div>
+
+            <!-- 食材 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">食材（每行一个）</label>
+              <textarea id="dish-ingredients" rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="排骨 500g&#10;葱 2根&#10;姜 3片"></textarea>
+            </div>
+
+            <!-- 配料 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">配料（每行一个）</label>
+              <textarea id="dish-seasoning" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="料酒 2勺&#10;生抽 3勺"></textarea>
+            </div>
+
+            <!-- 烹饪步骤 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">烹饪步骤（每行一步）</label>
+              <textarea id="dish-steps" rows="4" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="排骨洗净焯水&#10;炒糖色&#10;放入排骨翻炒"></textarea>
+            </div>
+
+            <!-- 小贴士 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">小贴士</label>
+              <textarea id="dish-tips" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="烹饪技巧和注意事项..."></textarea>
+            </div>
+
+            <!-- 描述 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">菜品描述</label>
+              <textarea id="dish-description" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="简要描述菜品特色..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+          <button onclick="saveDish()" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div id="delete-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+      <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
+        <p class="text-gray-600 mb-4">确定要删除菜品 "<span id="delete-dish-name"></span>" 吗？此操作无法撤销。</p>
+        <div class="flex justify-end gap-3">
+          <button onclick="closeDeleteModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+          <button onclick="confirmDelete()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">删除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin + '/api'
+    let dishes = []
+    let deleteDishId = null
+
+    // 分类和菜系映射
+    const categoryMap = {
+      'chinese': '中餐', 'breakfast': '早餐', 'snack': '点心', 'dessert': '甜点',
+      'drink': '饮料', 'western': '西餐', 'japanese': '日餐', 'korean': '韩餐', 'southeast': '东南亚'
+    }
+    const cuisineMap = {
+      'tianba': '天霸家自制', 'jiangzhe': '江浙菜', 'wenzhou': '温州菜', 'yue': '粤菜',
+      'dongbei': '东北菜', 'hunan': '湖南菜', 'yunnan': '云南菜', 'other': '其它'
+    }
+
+    // 加载菜品列表
+    async function loadDishes() {
+      const category = document.getElementById('filter-category').value
+      const cuisine = document.getElementById('filter-cuisine').value
+      const name = document.getElementById('search-name').value
+
+      const params = new URLSearchParams()
+      if (category) params.append('category', category)
+      if (cuisine) params.append('cuisine', cuisine)
+      if (name) params.append('name', name)
+
+      try {
+        const response = await fetch(`${API_BASE}/dishes?${params}`)
+        const result = await response.json()
+        dishes = result.data || []
+        renderDishes()
+        document.getElementById('total-count').textContent = dishes.length
+      } catch (error) {
+        console.error('加载失败:', error)
+        document.getElementById('dishes-tbody').innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-red-400">加载失败，请检查后端服务</td></tr>'
+      }
+    }
+
+    // 渲染菜品列表
+    function renderDishes() {
+      const tbody = document.getElementById('dishes-tbody')
+      
+      if (dishes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">暂无菜品数据</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = dishes.map(dish => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="px-4 py-3">
+            ${dish.images && dish.images.length > 0 
+              ? `<img src="${dish.images[0]}" class="image-preview" onerror="this.src='https://via.placeholder.com/80?text=No+Image'">` 
+              : '<span class="text-gray-400 text-sm">无图片</span>'}
+          </td>
+          <td class="px-4 py-3 font-medium text-gray-800">${dish.name}</td>
+          <td class="px-4 py-3 text-sm text-gray-600">${categoryMap[dish.category] || dish.category}</td>
+          <td class="px-4 py-3 text-sm text-gray-600">${dish.cuisine ? cuisineMap[dish.cuisine] : '-'}</td>
+          <td class="px-4 py-3 text-sm text-gray-600">${dish.calories || 0} 千卡</td>
+          <td class="px-4 py-3 text-sm text-gray-600">
+            <span class="text-green-600">蛋白质${dish.protein || 0}g</span> / 
+            <span class="text-amber-600">碳水${dish.carbs || 0}g</span> / 
+            <span class="text-blue-600">脂肪${dish.fat || 0}g</span>
+          </td>
+          <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">${dish.description || '-'}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <button onclick="viewDish('${dish.id}')" class="text-blue-500 hover:text-blue-700 text-sm">查看</button>
+              <button onclick="editDish('${dish.id}')" class="text-orange-500 hover:text-orange-700 text-sm">编辑</button>
+              <button onclick="openDeleteModal('${dish.id}', '${dish.name}')" class="text-red-500 hover:text-red-700 text-sm">删除</button>
+            </div>
+          </td>
+        </tr>
+      `).join('')
+    }
+
+    // 打开添加弹窗
+    function openAddModal() {
+      document.getElementById('modal-title').textContent = '添加菜品'
+      document.getElementById('dish-form').reset()
+      document.getElementById('dish-id').value = ''
+      updateCuisineField()
+      document.getElementById('dish-modal').classList.remove('hidden')
+    }
+
+    // 编辑菜品
+    function editDish(id) {
+      const dish = dishes.find(d => d.id === id)
+      if (!dish) return
+
+      document.getElementById('modal-title').textContent = '编辑菜品'
+      document.getElementById('dish-id').value = dish.id
+      document.getElementById('dish-name').value = dish.name
+      document.getElementById('dish-category').value = dish.category
+      document.getElementById('dish-cuisine').value = dish.cuisine || ''
+      document.getElementById('dish-images').value = (dish.images || []).join('\n')
+      document.getElementById('dish-calories').value = dish.calories || ''
+      document.getElementById('dish-protein').value = dish.protein || ''
+      document.getElementById('dish-carbs').value = dish.carbs || ''
+      document.getElementById('dish-fat').value = dish.fat || ''
+      document.getElementById('dish-ingredients').value = (dish.ingredients || []).join('\n')
+      document.getElementById('dish-seasoning').value = (dish.seasoning || []).join('\n')
+      document.getElementById('dish-steps').value = (dish.steps || []).join('\n')
+      document.getElementById('dish-tips').value = dish.tips || ''
+      document.getElementById('dish-description').value = dish.description || ''
+      
+      updateCuisineField()
+      document.getElementById('dish-modal').classList.remove('hidden')
+    }
+
+    // 查看菜品详情
+    function viewDish(id) {
+      const dish = dishes.find(d => d.id === id)
+      if (!dish) return
+      
+      alert(`【${dish.name}】\n\n分类: ${categoryMap[dish.category]}\n菜系: ${dish.cuisine ? cuisineMap[dish.cuisine] : '-'}\n\n食材:\n${(dish.ingredients || []).join('\n')}\n\n步骤:\n${(dish.steps || []).map((s, i) => `${i+1}. ${s}`).join('\n')}`)
+    }
+
+    // 保存菜品
+    async function saveDish() {
+      const id = document.getElementById('dish-id').value
+      const data = {
+        name: document.getElementById('dish-name').value,
+        category: document.getElementById('dish-category').value,
+        cuisine: document.getElementById('dish-cuisine').value || undefined,
+        images: document.getElementById('dish-images').value.split('\n').filter(s => s.trim()),
+        calories: parseFloat(document.getElementById('dish-calories').value) || 0,
+        protein: parseFloat(document.getElementById('dish-protein').value) || 0,
+        carbs: parseFloat(document.getElementById('dish-carbs').value) || 0,
+        fat: parseFloat(document.getElementById('dish-fat').value) || 0,
+        ingredients: document.getElementById('dish-ingredients').value.split('\n').filter(s => s.trim()),
+        seasoning: document.getElementById('dish-seasoning').value.split('\n').filter(s => s.trim()),
+        steps: document.getElementById('dish-steps').value.split('\n').filter(s => s.trim()),
+        tips: document.getElementById('dish-tips').value,
+        description: document.getElementById('dish-description').value,
+      }
+
+      if (!data.name) {
+        alert('请输入菜名')
+        return
+      }
+
+      try {
+        const url = id ? `${API_BASE}/dishes/${id}` : `${API_BASE}/dishes`
+        const method = id ? 'PUT' : 'POST'
+        
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          closeModal()
+          loadDishes()
+          alert(id ? '修改成功' : '添加成功')
+        } else {
+          alert('保存失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('保存失败:', error)
+        alert('保存失败，请检查后端服务')
+      }
+    }
+
+    // 删除相关
+    function openDeleteModal(id, name) {
+      deleteDishId = id
+      document.getElementById('delete-dish-name').textContent = name
+      document.getElementById('delete-modal').classList.remove('hidden')
+    }
+
+    function closeDeleteModal() {
+      deleteDishId = null
+      document.getElementById('delete-modal').classList.add('hidden')
+    }
+
+    async function confirmDelete() {
+      if (!deleteDishId) return
+      
+      try {
+        const response = await fetch(`${API_BASE}/dishes/${deleteDishId}`, { method: 'DELETE' })
+        const result = await response.json()
+        if (result.code === 200) {
+          closeDeleteModal()
+          loadDishes()
+          alert('删除成功')
+        } else {
+          alert('删除失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
+      }
+    }
+
+    // 关闭弹窗
+    function closeModal() {
+      document.getElementById('dish-modal').classList.add('hidden')
+    }
+
+    // 更新菜系字段显示
+    function updateCuisineField() {
+      const category = document.getElementById('dish-category').value
+      const cuisineField = document.getElementById('cuisine-field')
+      cuisineField.style.display = category === 'chinese' ? 'block' : 'none'
+    }
+
+    // 监听分类变化
+    document.getElementById('dish-category').addEventListener('change', updateCuisineField)
+
+    // 点击弹窗外部关闭
+    document.getElementById('dish-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal()
+    })
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeDeleteModal()
+    })
+
+    // 页面加载时获取数据
+    loadDishes()
+  </script>
+</body>
+</html>

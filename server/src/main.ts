@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
 import * as express from 'express';
 import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 function parsePort(): number {
   const args = process.argv.slice(2);
@@ -16,7 +18,7 @@ function parsePort(): number {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors({
     origin: true,
@@ -28,6 +30,10 @@ async function bootstrap() {
 
   // 全局拦截器：统一将 POST 请求的 201 状态码改为 200
   app.useGlobalInterceptors(new HttpStatusInterceptor());
+  
+  // 静态文件服务（管理后台）
+  app.useStaticAssets(join(__dirname, '..', 'public'));
+  
   // 1. 开启优雅关闭 Hooks (关键!)
   app.enableShutdownHooks();
 
