@@ -114,15 +114,15 @@ const DishesPage: FC = () => {
   return (
     <View className="flex flex-row h-screen bg-white">
       {/* 左侧分类导航 */}
-      <View className="w-20 bg-gray-50 flex flex-col">
+      <View className="w-40 bg-gray-50 flex flex-col">
         <ScrollView scrollY className="flex-1">
           {categories.map(category => (
             <View
               key={category.id}
-              className={`px-2 py-4 flex items-center justify-center ${selectedCategory === category.id ? 'bg-white border-l-2 border-orange-500' : ''}`}
+              className={`px-4 py-4 flex items-center justify-start ${selectedCategory === category.id ? 'bg-white border-l-2 border-orange-500' : ''}`}
               onClick={() => setSelectedCategory(category.id)}
             >
-              <Text className={`block text-sm text-center ${selectedCategory === category.id ? 'text-orange-500 font-medium' : 'text-gray-600'}`}>
+              <Text className={`block text-sm ${selectedCategory === category.id ? 'text-orange-500 font-medium' : 'text-gray-600'}`}>
                 {category.name}
               </Text>
             </View>
