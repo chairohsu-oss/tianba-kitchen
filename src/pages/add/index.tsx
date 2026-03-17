@@ -1,7 +1,7 @@
 import { View, Text, Image, Input, Picker, ScrollView } from '@tarojs/components'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, Check } from 'lucide-react-taro'
+import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, Bot, User, Sparkles, Check } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -31,20 +31,46 @@ const CHINESE_CUISINES = [
   { id: 'other', name: '其它' },
 ]
 
+// 对话消息类型
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+}
+
 const AddDishPage: FC = () => {
+  // A模块：上传菜品照片
   const [images, setImages] = useState<string[]>([])
-  const [dishName, setDishName] = useState('')
+  const [showActionSheet, setShowActionSheet] = useState(false)
+  
+  // B模块：分类设置
   const [categoryIndex, setCategoryIndex] = useState(0)
   const [cuisineIndex, setCuisineIndex] = useState(0)
+  
+  // C模块：菜名输入
+  const [dishName, setDishName] = useState('')
+  
+  // D模块：补充说明对话
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你自动计算热量和营养成分。\n\n例如：\n• 主料：五花肉500克、葱姜蒜\n• 配料：料酒、生抽、老抽、冰糖\n• 做法：切块焯水、炒糖色、炖煮1小时',
+      timestamp: Date.now()
+    }
+  ])
   const [inputMode, setInputMode] = useState<'voice' | 'keyboard'>('voice')
   const [textInput, setTextInput] = useState('')
   const [isRecording, setIsRecording] = useState(false)
+  const [touchStartY, setTouchStartY] = useState(0)
+  const [isCancelling, setIsCancelling] = useState(false)
   const recorderManagerRef = useRef<Taro.RecorderManager | null>(null)
+  const scrollViewRef = useRef<string>('')
+  
+  // E模块：生成状态
   const [isGenerating, setIsGenerating] = useState(false)
-  const [generatedRecipe, setGeneratedRecipe] = useState<any>(null)
-  const [showActionSheet, setShowActionSheet] = useState(false)
-  const [showNameInput, setShowNameInput] = useState(false)
-  const [nameInputMode, setNameInputMode] = useState<'voice' | 'keyboard'>('keyboard')
+  const [generatedDish, setGeneratedDish] = useState<any>(null)
 
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const showCuisineSelect = CATEGORIES[categoryIndex]?.id === 'chinese'
@@ -53,66 +79,27 @@ const AddDishPage: FC = () => {
   useEffect(() => {
     if (isWeapp) {
       const manager = Taro.getRecorderManager()
-      manager.onStart(() => setIsRecording(true))
+      manager.onStart(() => {
+        setIsRecording(true)
+      })
       manager.onStop((res) => {
         setIsRecording(false)
-        handleVoiceInput(res.tempFilePath)
+        if (!isCancelling) {
+          handleVoiceInput(res.tempFilePath)
+        }
+        setIsCancelling(false)
       })
       manager.onError((err) => {
         console.error('录音错误', err)
         Taro.showToast({ title: '录音失败', icon: 'none' })
         setIsRecording(false)
+        setIsCancelling(false)
       })
       recorderManagerRef.current = manager
     }
   }, [isWeapp])
 
-  // 开始/停止录音
-  const startRecording = () => {
-    if (!isWeapp) {
-      Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
-      return
-    }
-    recorderManagerRef.current?.start({ format: 'wav', sampleRate: 16000, numberOfChannels: 1 })
-  }
-
-  const stopRecording = () => {
-    recorderManagerRef.current?.stop()
-  }
-
-  // 处理语音输入
-  const handleVoiceInput = async (audioPath: string) => {
-    setIsGenerating(true)
-    try {
-      const fileSystemManager = Taro.getFileSystemManager()
-      const arrayBuffer = fileSystemManager.readFileSync(audioPath)
-      const base64 = Taro.arrayBufferToBase64(arrayBuffer as ArrayBuffer)
-
-      const asrResult = await Network.request({
-        url: '/api/voice/recognize',
-        method: 'POST',
-        data: { audioData: base64 }
-      })
-
-      const recognizedText = (asrResult as any).data?.text || ''
-      if (recognizedText) {
-        // 如果是在菜名输入模式，填充菜名
-        if (showNameInput) {
-          setDishName(recognizedText)
-        } else {
-          // 否则填充烹饪方式
-          setTextInput(prev => prev ? prev + '\n' + recognizedText : recognizedText)
-        }
-      }
-    } catch (error) {
-      console.error('语音识别失败', error)
-      Taro.showToast({ title: '语音识别失败', icon: 'none' })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  // 选择图片
+  // A模块：图片选择
   const chooseImage = (sourceType: 'album' | 'camera') => {
     if (images.length >= 3) {
       Taro.showToast({ title: '最多上传3张图片', icon: 'none' })
@@ -128,55 +115,155 @@ const AddDishPage: FC = () => {
     })
   }
 
-  // 点击中间区域上传照片
-  const handleCenterClick = () => {
-    setShowActionSheet(true)
-  }
-
-  // 删除图片
   const removeImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index))
   }
 
-  // AI生成菜谱
-  const generateRecipe = async () => {
+  // D模块：补充说明对话
+  const addMessage = useCallback((role: 'user' | 'assistant', content: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      role,
+      content,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, newMessage])
+    scrollViewRef.current = `msg-${newMessage.id}`
+    return newMessage
+  }, [])
+
+  const handleVoiceInput = async (audioPath: string) => {
+    try {
+      const fileSystemManager = Taro.getFileSystemManager()
+      const arrayBuffer = fileSystemManager.readFileSync(audioPath)
+      const base64 = Taro.arrayBufferToBase64(arrayBuffer as ArrayBuffer)
+
+      console.log('发送语音识别请求...')
+      const asrResult = await Network.request({
+        url: '/api/voice/recognize',
+        method: 'POST',
+        data: { audioData: base64 }
+      })
+
+      console.log('语音识别完整响应:', JSON.stringify(asrResult, null, 2))
+      const recognizedText = (asrResult as any).data?.data?.text || ''
+      console.log('解析出的识别文本:', recognizedText)
+      
+      if (recognizedText) {
+        addMessage('user', recognizedText)
+      } else {
+        Taro.showToast({ title: '未识别到语音内容', icon: 'none' })
+      }
+    } catch (error) {
+      console.error('语音识别失败', error)
+      Taro.showToast({ title: '语音识别失败', icon: 'none' })
+    }
+  }
+
+  const sendMessage = async () => {
+    if (!textInput.trim()) return
+
+    const userMessage = textInput.trim()
+    setTextInput('')
+    addMessage('user', userMessage)
+  }
+
+  // 录音控制
+  const startRecording = () => {
+    if (!isWeapp) {
+      Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
+      return
+    }
+    setIsCancelling(false)
+    recorderManagerRef.current?.start({
+      format: 'wav',
+      sampleRate: 16000,
+      numberOfChannels: 1
+    })
+  }
+
+  const stopRecording = () => {
+    recorderManagerRef.current?.stop()
+  }
+
+  const handleTouchMove = (e: any) => {
+    if (isRecording) {
+      const currentY = e.touches[0].clientY
+      if (touchStartY - currentY > 50) {
+        setIsCancelling(true)
+      } else {
+        setIsCancelling(false)
+      }
+    }
+  }
+
+  const handleTouchStart = (e: any) => {
+    setTouchStartY(e.touches[0].clientY)
+    startRecording()
+  }
+
+  const handleTouchEnd = () => {
+    if (isRecording) {
+      stopRecording()
+    }
+  }
+
+  // E模块：AI生成菜品
+  const generateDish = async () => {
     if (!dishName.trim()) {
       Taro.showToast({ title: '请输入菜名', icon: 'none' })
       return
     }
+
     setIsGenerating(true)
     try {
+      // 收集用户的补充说明
+      const userInputs = messages
+        .filter(m => m.role === 'user')
+        .map(m => m.content)
+        .join('\n')
+
+      console.log('AI生成菜品请求:', {
+        name: dishName,
+        category: CATEGORIES[categoryIndex].id,
+        cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
+        userInputs,
+        images
+      })
+
       const result = await Network.request({
-        url: '/api/ai/generate-recipe',
+        url: '/api/ai/generate-dish',
         method: 'POST',
         data: {
           name: dishName,
           category: CATEGORIES[categoryIndex].id,
           cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
-          input: textInput,
+          userInputs,
           images
         }
       })
-      setGeneratedRecipe((result as any).data)
-      Taro.showToast({ title: '菜谱生成成功', icon: 'success' })
+
+      console.log('AI生成响应:', result)
+      const dishData = (result as any).data?.data || (result as any).data
+      
+      if (dishData) {
+        setGeneratedDish(dishData)
+        Taro.showToast({ title: '生成成功', icon: 'success' })
+      } else {
+        Taro.showToast({ title: '生成失败，请重试', icon: 'none' })
+      }
     } catch (error) {
-      console.error('生成菜谱失败', error)
+      console.error('生成菜品失败', error)
       Taro.showToast({ title: '生成失败', icon: 'none' })
     } finally {
       setIsGenerating(false)
     }
   }
 
-  // 提交保存
+  // 保存菜品到数据库
   const saveDish = async () => {
-    if (!dishName.trim()) {
-      Taro.showToast({ title: '请输入菜名', icon: 'none' })
-      return
-    }
-    if (!generatedRecipe) {
-      Taro.showToast({ title: '请先生成菜谱', icon: 'none' })
-      return
-    }
+    if (!generatedDish) return
+
     try {
       await Network.request({
         url: '/api/dishes',
@@ -186,49 +273,82 @@ const AddDishPage: FC = () => {
           images,
           category: CATEGORIES[categoryIndex].id,
           cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
-          ...generatedRecipe
+          ...generatedDish
         }
       })
-      Taro.showToast({ title: '保存成功', icon: 'success' })
+      
+      Taro.showToast({ title: '保存成功！', icon: 'success' })
+      
       // 重置表单
       setImages([])
       setDishName('')
       setTextInput('')
-      setGeneratedRecipe(null)
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你自动计算热量和营养成分。',
+          timestamp: Date.now()
+        }
+      ])
+      setGeneratedDish(null)
     } catch (error) {
       console.error('保存失败', error)
       Taro.showToast({ title: '保存失败', icon: 'none' })
     }
   }
 
-  // 发送烹饪方式文本
-  const sendCookingText = () => {
-    if (!textInput.trim()) return
-    // 可以在这里做一些处理，或者直接等待生成菜谱
-  }
-
   return (
-    <View className="flex flex-col h-screen bg-gray-50">
-      {/* 顶部上传照片区域 */}
-      <View className="bg-white border-b border-gray-100">
-        {images.length === 0 ? (
-          // 未上传照片时显示大区域
-          <View
-            className="flex flex-col items-center justify-center py-12"
-            onClick={handleCenterClick}
-          >
-            <View className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <Camera size={32} color="#9CA3AF" />
+    <View className="flex flex-col bg-gray-50">
+      {/* 录音状态遮罩层 */}
+      {isRecording && (
+        <View 
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+          style={{
+            background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.85) 0%, rgba(37, 99, 235, 0.95) 100%)',
+          }}
+        >
+          <View className="flex flex-col items-center">
+            <View className="flex flex-row items-center justify-center gap-1 mb-6">
+              {[1, 2, 3, 4, 5].map(i => (
+                <View 
+                  key={i}
+                  className="w-1 bg-white rounded-full"
+                  style={{
+                    height: `${20 + Math.random() * 30}px`,
+                    animation: `wave 0.5s ease-in-out infinite ${i * 0.1}s`
+                  }}
+                />
+              ))}
             </View>
-            <Text className="block text-sm text-gray-500">点击上传菜品照片</Text>
-            <Text className="block text-xs text-gray-400 mt-1">最多上传3张</Text>
+            
+            <Text className="text-white text-xl font-medium mb-2">
+              {isCancelling ? '松开取消录音' : '正在聆听...'}
+            </Text>
+            <Text className="text-white/70 text-sm">
+              {isCancelling ? '上滑已取消' : '松开发送，上滑取消'}
+            </Text>
           </View>
-        ) : (
-          // 已上传照片时显示缩略图
-          <View className="p-4">
-            <View className="flex flex-row gap-3">
+        </View>
+      )}
+
+      <ScrollView scrollY style={{ height: 'calc(100vh - 80px)' }}>
+        {/* A模块：上传菜品照片 */}
+        <View className="bg-white px-4 py-4 mb-2">
+          <Text className="block text-sm font-medium text-gray-800 mb-3">📸 菜品照片</Text>
+          {images.length === 0 ? (
+            <View
+              className="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+              onClick={() => setShowActionSheet(true)}
+            >
+              <Camera size={32} color="#9CA3AF" />
+              <Text className="block text-sm text-gray-500 mt-2">点击上传菜品照片</Text>
+              <Text className="block text-xs text-gray-400 mt-1">最多3张</Text>
+            </View>
+          ) : (
+            <View className="flex flex-row gap-3 flex-wrap">
               {images.map((img, index) => (
-                <View key={index} className="relative w-20 h-20">
+                <View key={index} className="relative w-24 h-24">
                   <Image className="w-full h-full rounded-xl" src={img} mode="aspectFill" />
                   <View
                     className="absolute -top-1 -right-1 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center"
@@ -240,7 +360,7 @@ const AddDishPage: FC = () => {
               ))}
               {images.length < 3 && (
                 <View
-                  className="w-20 h-20 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center"
+                  className="w-24 h-24 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center"
                   onClick={() => setShowActionSheet(true)}
                 >
                   <Plus size={20} color="#9CA3AF" />
@@ -248,65 +368,12 @@ const AddDishPage: FC = () => {
                 </View>
               )}
             </View>
-          </View>
-        )}
-      </View>
-
-      <ScrollView scrollY className="flex-1 p-4">
-        {/* 菜名输入 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-sm font-medium text-gray-800 mb-3">菜品名称</Text>
-          <View className="flex flex-row items-center gap-2">
-            {showNameInput && nameInputMode === 'voice' ? (
-              <>
-                <View
-                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-gray-800' : 'bg-gray-100'}`}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                >
-                  <Mic size={18} color={isRecording ? '#fff' : '#6B7280'} />
-                </View>
-                <View
-                  className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 min-h-[40px] flex items-center justify-center"
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                >
-                  <Text className={`text-sm ${isRecording ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
-                    {isRecording ? '松开结束' : '按住说菜名'}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <View className="flex-1 bg-gray-100 rounded-full px-4 py-0 min-h-[40px] flex items-center">
-                  <Input
-                    className="w-full text-sm"
-                    placeholder="输入菜名"
-                    value={dishName}
-                    onInput={(e) => setDishName(e.detail.value)}
-                  />
-                </View>
-              </>
-            )}
-            <View
-              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-              onClick={() => {
-                setShowNameInput(true)
-                setNameInputMode(nameInputMode === 'voice' ? 'keyboard' : 'voice')
-              }}
-            >
-              {nameInputMode === 'voice' ? (
-                <Keyboard size={18} color="#6B7280" />
-              ) : (
-                <Mic size={18} color="#6B7280" />
-              )}
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* 分类和菜系选择 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-sm font-medium text-gray-800 mb-3">分类设置</Text>
+        {/* B模块：分类设置 */}
+        <View className="bg-white px-4 py-4 mb-2">
+          <Text className="block text-sm font-medium text-gray-800 mb-3">🏷️ 分类设置</Text>
           
           {/* 分类选择 */}
           <View className="mb-3">
@@ -317,7 +384,7 @@ const AddDishPage: FC = () => {
               value={categoryIndex}
               onChange={(e) => setCategoryIndex(Number(e.detail.value))}
             >
-              <View className="bg-gray-100 rounded-xl px-3 py-2.5 flex flex-row justify-between items-center">
+              <View className="bg-gray-50 rounded-xl px-4 py-3 flex flex-row justify-between items-center">
                 <Text className="text-sm text-gray-800">{CATEGORIES[categoryIndex].name}</Text>
                 <Text className="text-gray-400 text-xs">▼</Text>
               </View>
@@ -334,7 +401,7 @@ const AddDishPage: FC = () => {
                 value={cuisineIndex}
                 onChange={(e) => setCuisineIndex(Number(e.detail.value))}
               >
-                <View className="bg-gray-100 rounded-xl px-3 py-2.5 flex flex-row justify-between items-center">
+                <View className="bg-gray-50 rounded-xl px-4 py-3 flex flex-row justify-between items-center">
                   <Text className="text-sm text-gray-800">{CHINESE_CUISINES[cuisineIndex].name}</Text>
                   <Text className="text-gray-400 text-xs">▼</Text>
                 </View>
@@ -343,150 +410,218 @@ const AddDishPage: FC = () => {
           )}
         </View>
 
-        {/* 烹饪方式输入 - 底部输入框样式 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-sm font-medium text-gray-800 mb-3">烹饪方式</Text>
-          
-          {/* 已输入的内容显示 */}
-          {textInput && (
-            <View className="bg-gray-100 rounded-xl p-3 mb-3">
-              <Text className="text-sm text-gray-700 whitespace-pre-wrap">{textInput}</Text>
-            </View>
-          )}
-
-          {/* 输入框 - 加高50% */}
-          <View className="flex flex-row items-center gap-2">
-            {inputMode === 'voice' ? (
-              <>
-                <View
-                  className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-gray-800' : 'bg-gray-100'}`}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                >
-                  <Mic size={22} color={isRecording ? '#fff' : '#6B7280'} />
-                </View>
-                <View
-                  className="flex-1 bg-gray-100 rounded-full px-5 py-4 min-h-[52px] flex items-center justify-center"
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                >
-                  <Text className={`text-sm ${isRecording ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
-                    {isRecording ? '松开结束' : '按住说做法'}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <View
-                  className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-gray-800' : 'bg-gray-100'}`}
-                  onClick={textInput.trim() ? sendCookingText : undefined}
-                >
-                  <Send size={20} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
-                </View>
-                <View className="flex-1 bg-gray-100 rounded-full px-5 py-0 min-h-[52px] flex items-center">
-                  <Input
-                    className="w-full text-sm"
-                    placeholder="输入食材和做法..."
-                    value={textInput}
-                    onInput={(e) => setTextInput(e.detail.value)}
-                    onConfirm={sendCookingText}
-                    confirmType="done"
-                  />
-                </View>
-              </>
-            )}
-            <View
-              className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-              onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
-            >
-              {inputMode === 'voice' ? (
-                <Keyboard size={20} color="#6B7280" />
-              ) : (
-                <Mic size={20} color="#6B7280" />
-              )}
-            </View>
+        {/* C模块：菜名输入 */}
+        <View className="bg-white px-4 py-4 mb-2">
+          <Text className="block text-sm font-medium text-gray-800 mb-3">📝 菜品名称</Text>
+          <View className="bg-gray-50 rounded-xl px-4 py-0 min-h-[44px] flex items-center">
+            <Input
+              className="w-full text-sm"
+              placeholder="输入菜名..."
+              value={dishName}
+              onInput={(e) => setDishName(e.detail.value)}
+            />
           </View>
-
-          {/* H5提示 */}
-          {!isWeapp && inputMode === 'voice' && (
-            <Text className="block text-xs text-gray-400 text-center mt-2">
-              H5端不支持录音，请切换键盘输入
-            </Text>
-          )}
         </View>
 
-        {/* 生成菜谱按钮 */}
-        <View
-          className={`bg-gray-800 rounded-full py-4 flex items-center justify-center mb-4 ${isGenerating ? 'opacity-50' : ''}`}
-          onClick={isGenerating ? undefined : generateRecipe}
-        >
-          {isGenerating ? (
-            <View className="flex flex-row items-center">
-              <Loader size={18} color="#fff" className="animate-spin" />
-              <Text className="text-white font-medium ml-2">AI生成中...</Text>
-            </View>
-          ) : (
-            <Text className="text-white font-medium">AI 生成菜谱</Text>
-          )}
-        </View>
-
-        {/* 生成的菜谱预览 */}
-        {generatedRecipe && (
-          <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-            <Text className="block text-base font-semibold text-gray-800 mb-3">菜谱预览</Text>
-
-            <View className="mb-3">
-              <Text className="block text-xs font-medium text-gray-700">食材</Text>
-              <Text className="block text-xs text-gray-600 mt-1">{generatedRecipe.ingredients}</Text>
-            </View>
-
-            <View className="mb-3">
-              <Text className="block text-xs font-medium text-gray-700">配料</Text>
-              <Text className="block text-xs text-gray-600 mt-1">{generatedRecipe.seasoning}</Text>
-            </View>
-
-            <View className="mb-3">
-              <Text className="block text-xs font-medium text-gray-700">烹饪方式</Text>
-              {generatedRecipe.steps?.map((step: string, i: number) => (
-                <Text key={i} className="block text-xs text-gray-600 mt-1">
-                  {i + 1}. {step}
-                </Text>
-              ))}
-            </View>
-
-            <View className="flex flex-row gap-4 pt-3 border-t border-gray-100">
-              <View>
-                <Text className="block text-xs text-gray-400">热量</Text>
-                <Text className="block text-xs font-medium text-gray-800">{generatedRecipe.calories} 千卡</Text>
-              </View>
-              <View>
-                <Text className="block text-xs text-gray-400">蛋白质</Text>
-                <Text className="block text-xs font-medium text-gray-800">{generatedRecipe.protein}g</Text>
-              </View>
-              <View>
-                <Text className="block text-xs text-gray-400">碳水</Text>
-                <Text className="block text-xs font-medium text-gray-800">{generatedRecipe.carbs}g</Text>
-              </View>
-              <View>
-                <Text className="block text-xs text-gray-400">脂肪</Text>
-                <Text className="block text-xs font-medium text-gray-800">{generatedRecipe.fat}g</Text>
-              </View>
-            </View>
-
-            {/* 保存按钮 */}
-            <View
-              className="bg-emerald-500 rounded-full py-3 flex items-center justify-center mt-4"
-              onClick={saveDish}
+        {/* D模块：补充说明对话 */}
+        <View className="bg-white px-4 py-4 mb-2">
+          <Text className="block text-sm font-medium text-gray-800 mb-3">💬 补充说明</Text>
+          
+          {/* 对话框 */}
+          <View className="bg-gray-50 rounded-xl p-3 mb-3" style={{ minHeight: '150px', maxHeight: '300px' }}>
+            <ScrollView 
+              scrollY 
+              className="h-full"
+              scrollIntoView={scrollViewRef.current}
+              scrollWithAnimation
             >
-              <Check size={18} color="#fff" />
-              <Text className="text-white font-medium ml-2">保存菜品</Text>
+              {messages.map(msg => (
+                <View key={msg.id} id={`msg-${msg.id}`} className="mb-3">
+                  {msg.role === 'user' ? (
+                    <View className="flex flex-row justify-end items-start gap-2">
+                      <View className="bg-gray-800 rounded-2xl rounded-br-md px-3 py-2 max-w-[85%]">
+                        <Text className="text-white text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
+                      </View>
+                      <View className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        <User size={14} color="#6B7280" />
+                      </View>
+                    </View>
+                  ) : (
+                    <View className="flex flex-row justify-start items-start gap-2">
+                      <View className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                        <Bot size={14} color="#fff" />
+                      </View>
+                      <View className="bg-white rounded-2xl rounded-bl-md px-3 py-2 max-w-[85%] shadow-sm">
+                        <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* 生成的菜品预览 */}
+        {generatedDish && (
+          <View className="bg-white px-4 py-4 mb-2">
+            <View className="flex flex-row items-center gap-2 mb-3">
+              <Sparkles size={18} color="#10B981" />
+              <Text className="block text-sm font-medium text-gray-800">AI 生成的菜品信息</Text>
+            </View>
+
+            <View className="bg-gray-50 rounded-xl p-3 space-y-3">
+              {/* 食材 */}
+              {generatedDish.ingredients && (
+                <View>
+                  <Text className="block text-xs font-medium text-gray-700 mb-1">食材</Text>
+                  <Text className="block text-sm text-gray-600">{Array.isArray(generatedDish.ingredients) ? generatedDish.ingredients.join('、') : generatedDish.ingredients}</Text>
+                </View>
+              )}
+
+              {/* 配料 */}
+              {generatedDish.seasoning && (
+                <View>
+                  <Text className="block text-xs font-medium text-gray-700 mb-1">配料</Text>
+                  <Text className="block text-sm text-gray-600">{Array.isArray(generatedDish.seasoning) ? generatedDish.seasoning.join('、') : generatedDish.seasoning}</Text>
+                </View>
+              )}
+
+              {/* 烹饪步骤 */}
+              {generatedDish.steps && generatedDish.steps.length > 0 && (
+                <View>
+                  <Text className="block text-xs font-medium text-gray-700 mb-1">烹饪步骤</Text>
+                  {generatedDish.steps.map((step: string, i: number) => (
+                    <Text key={i} className="block text-sm text-gray-600 mt-1">{i + 1}. {step}</Text>
+                  ))}
+                </View>
+              )}
+
+              {/* 营养信息 */}
+              <View className="flex flex-row gap-4 pt-2 border-t border-gray-200">
+                <View className="flex-1 text-center">
+                  <Text className="block text-lg font-bold text-orange-500">{generatedDish.calories || 0}</Text>
+                  <Text className="block text-xs text-gray-400">千卡</Text>
+                </View>
+                <View className="flex-1 text-center">
+                  <Text className="block text-lg font-bold text-green-500">{generatedDish.protein || 0}</Text>
+                  <Text className="block text-xs text-gray-400">蛋白质</Text>
+                </View>
+                <View className="flex-1 text-center">
+                  <Text className="block text-lg font-bold text-amber-500">{generatedDish.carbs || 0}</Text>
+                  <Text className="block text-xs text-gray-400">碳水</Text>
+                </View>
+                <View className="flex-1 text-center">
+                  <Text className="block text-lg font-bold text-blue-500">{generatedDish.fat || 0}</Text>
+                  <Text className="block text-xs text-gray-400">脂肪</Text>
+                </View>
+              </View>
+
+              {/* 保存按钮 */}
+              <View
+                className="bg-emerald-500 rounded-full py-3 flex flex-row items-center justify-center mt-3"
+                onClick={saveDish}
+              >
+                <Check size={18} color="#fff" />
+                <Text className="text-white font-medium ml-2">保存到菜品库</Text>
+              </View>
             </View>
           </View>
         )}
 
         {/* 底部占位 */}
-        <View className="h-4" />
+        <View style={{ height: '100px' }} />
       </ScrollView>
+
+      {/* 底部固定区域：语音输入框 + AI生成按钮 */}
+      <View 
+        className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40"
+        style={{ bottom: 0 }}
+      >
+        {/* D模块：语音输入框 - 和首页一样 */}
+        <View className="flex flex-row items-center gap-2 mb-3">
+          {/* 左侧：图片上传按钮 */}
+          <View
+            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+            onClick={() => setShowActionSheet(true)}
+          >
+            <ImageIcon size={18} color="#6B7280" />
+          </View>
+
+          {/* 中间：输入区域 */}
+          {inputMode === 'voice' ? (
+            <View
+              className="flex-1 bg-gray-100 rounded-full h-11 flex items-center justify-center"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
+            >
+              <Text className="text-sm text-gray-500">按住 说话</Text>
+            </View>
+          ) : (
+            <View className="flex-1 bg-gray-100 rounded-full h-11 flex items-center px-4">
+              <Input
+                className="w-full text-sm"
+                placeholder="输入食材、配料、做法..."
+                value={textInput}
+                onInput={(e) => setTextInput(e.detail.value)}
+                onConfirm={sendMessage}
+                confirmType="send"
+              />
+            </View>
+          )}
+
+          {/* 右侧：发送/语音切换按钮 */}
+          {inputMode === 'keyboard' ? (
+            <>
+              <View
+                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-blue-500' : 'bg-gray-100'}`}
+                onClick={textInput.trim() ? sendMessage : undefined}
+              >
+                <Send size={16} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
+              </View>
+              <View
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+                onClick={() => setInputMode('voice')}
+              >
+                <Mic size={18} color="#6B7280" />
+              </View>
+            </>
+          ) : (
+            <View
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+              onClick={() => setInputMode('keyboard')}
+            >
+              <Keyboard size={18} color="#6B7280" />
+            </View>
+          )}
+        </View>
+
+        {/* H5提示 */}
+        {!isWeapp && inputMode === 'voice' && (
+          <Text className="block text-xs text-gray-400 text-center mb-2">
+            H5端不支持录音，请切换键盘输入
+          </Text>
+        )}
+
+        {/* E模块：AI生成菜品按钮 */}
+        <View
+          className={`rounded-full py-3 flex flex-row items-center justify-center ${isGenerating ? 'bg-gray-400' : 'bg-gray-800'}`}
+          onClick={isGenerating ? undefined : generateDish}
+        >
+          {isGenerating ? (
+            <>
+              <Loader size={18} color="#fff" className="animate-spin" />
+              <Text className="text-white font-medium ml-2">AI 生成中...</Text>
+            </>
+          ) : (
+            <>
+              <Sparkles size={18} color="#fff" />
+              <Text className="text-white font-medium ml-2">AI 生成菜品</Text>
+            </>
+          )}
+        </View>
+      </View>
 
       {/* 图片选择弹窗 */}
       {showActionSheet && (

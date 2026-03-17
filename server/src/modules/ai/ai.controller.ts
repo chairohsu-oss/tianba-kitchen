@@ -90,4 +90,43 @@ export class AiController {
       data: result,
     }
   }
+
+  /**
+   * AI生成菜品（录入菜品页面使用）
+   */
+  @Post('generate-dish')
+  @HttpCode(HttpStatus.OK)
+  async generateDish(
+    @Body() body: {
+      name: string
+      category: string
+      cuisine?: string
+      userInputs: string
+      images?: string[]
+    },
+  ) {
+    console.log('AI生成菜品 - 菜名:', body.name, '分类:', body.category, '菜系:', body.cuisine)
+
+    if (!body.name) {
+      return {
+        code: 400,
+        msg: '菜名不能为空',
+        data: null,
+      }
+    }
+
+    const result = await this.aiService.generateDish({
+      name: body.name,
+      category: body.category,
+      cuisine: body.cuisine,
+      userInputs: body.userInputs || '',
+      images: body.images,
+    })
+
+    return {
+      code: 200,
+      msg: 'success',
+      data: result,
+    }
+  }
 }

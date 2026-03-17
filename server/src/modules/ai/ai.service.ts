@@ -276,6 +276,124 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
   }
 
   /**
+   * AI生成菜品（录入菜品页面使用）
+   * 根据用户输入的菜名、分类、补充说明，自动整理食材、配料、烹饪步骤，计算营养信息
+   */
+  async generateDish(input: {
+    name: string
+    category: string
+    cuisine?: string
+    userInputs: string
+    images?: string[]
+  }): Promise<any> {
+    const categoryNames: Record<string, string> = {
+      'chinese': '中餐',
+      'breakfast': '早餐',
+      'snack': '点心',
+      'dessert': '甜点',
+      'drink': '饮料',
+      'western': '西餐',
+      'japanese': '日餐',
+      'korean': '韩餐',
+      'southeast': '东南亚',
+    }
+
+    const cuisineNames: Record<string, string> = {
+      'tianba': '天霸家自制',
+      'jiangzhe': '江浙菜',
+      'wenzhou': '温州菜',
+      'yue': '粤菜',
+      'dongbei': '东北菜',
+      'hunan': '湖南菜',
+      'yunnan': '云南菜',
+      'other': '其它',
+    }
+
+    const categoryName = categoryNames[input.category] || input.category
+    const cuisineName = input.cuisine ? (cuisineNames[input.cuisine] || input.cuisine) : ''
+
+    const prompt = `你是一位专业的厨师和营养师。请根据以下信息，为这道菜品生成完整的菜谱和营养信息。
+
+菜名：${input.name}
+分类：${categoryName}${cuisineName ? `（${cuisineName}）` : ''}
+用户补充说明：
+${input.userInputs || '（用户未提供详细信息，请根据菜名推断）'}
+
+请以JSON格式返回，格式如下：
+{
+  "ingredients": ["食材1（用量）", "食材2（用量）", ...],
+  "seasoning": ["配料1（用量）", "配料2（用量）", ...],
+  "steps": ["步骤1", "步骤2", "步骤3", ...],
+  "tips": "烹饪小贴士，帮助用户做出更好的味道",
+  "calories": 热量数值（整数，单位千卡）,
+  "protein": 蛋白质含量（整数，单位克）,
+  "carbs": 碳水化合物含量（整数，单位克）,
+  "fat": 脂肪含量（整数，单位克）,
+  "description": "菜品简短描述（不超过30字）"
+}
+
+要求：
+1. ingredients 数组：列出主要食材，包含用量（如"五花肉 500克"）
+2. seasoning 数组：列出配料调料，包含用量（如"生抽 2勺"）
+3. steps 数组：清晰的烹饪步骤，每步一个元素
+4. tips：实用的小贴士，帮助用户做得更好
+5. 营养数据：根据食材和烹饪方式估算合理的数值
+6. description：简短描述菜品特点
+
+只返回JSON，不要有任何其他文字。`
+
+    try {
+      console.log('AI生成菜品请求:', { name: input.name, category: categoryName, cuisine: cuisineName })
+      
+      const response = await this.llmClient.invoke([
+        { role: 'system', content: '你是一个专业的菜谱生成助手，只返回JSON格式的数据。' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.7 })
+
+      console.log('AI生成菜品响应:', response.content.substring(0, 300))
+
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0])
+        // 确保必要的字段存在
+        return {
+          ingredients: result.ingredients || [],
+          seasoning: result.seasoning || [],
+          steps: result.steps || [],
+          tips: result.tips || '',
+          calories: result.calories || 300,
+          protein: result.protein || 15,
+          carbs: result.carbs || 20,
+          fat: result.fat || 10,
+          description: result.description || `${input.name}，美味佳肴`,
+        }
+      }
+
+      return this.getDefaultDishData(input.name)
+    } catch (error) {
+      console.error('AI生成菜品失败:', error)
+      return this.getDefaultDishData(input.name)
+    }
+  }
+
+  /**
+   * 默认菜品数据
+   */
+  private getDefaultDishData(name: string) {
+    return {
+      ingredients: ['请补充食材'],
+      seasoning: ['请补充配料'],
+      steps: ['请补充烹饪步骤'],
+      tips: '请补充烹饪小贴士',
+      calories: 300,
+      protein: 15,
+      carbs: 20,
+      fat: 10,
+      description: `${name}，美味佳肴`,
+    }
+  }
+
+  /**
    * 默认推荐
    */
   private getDefaultRecommendations() {

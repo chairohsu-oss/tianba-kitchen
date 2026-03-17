@@ -188,15 +188,12 @@ const DishesPage: FC = () => {
   }
 
   return (
-    <View 
-      className="flex flex-col h-screen bg-white overflow-hidden"
-      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-    >
-      {/* 主内容区域 */}
-      <View className="flex flex-row flex-1 overflow-hidden">
-        {/* 左侧分类导航 */}
+    <View className="flex flex-col bg-white">
+      {/* 主内容区域 - 使用flex-row布局 */}
+      <View className="flex flex-row" style={{ minHeight: '100vh' }}>
+        {/* 左侧分类导航 - 固定宽度 */}
         <View className="w-20 bg-gray-50 flex flex-col flex-shrink-0">
-          <ScrollView scrollY className="flex-1">
+          <ScrollView scrollY style={{ height: '100vh' }}>
             {categories.map(category => (
               <View
                 key={category.id}
@@ -214,11 +211,13 @@ const DishesPage: FC = () => {
                 </Text>
               </View>
             ))}
+            {/* 底部安全区域 */}
+            <View style={{ height: '80px' }} />
           </ScrollView>
         </View>
 
         {/* 右侧内容区 */}
-        <View className="flex-1 flex flex-col overflow-hidden">
+        <View className="flex-1 flex flex-col">
           {/* 中餐菜系电梯导航 */}
           {selectedCategory === 'chinese' && (
             <ScrollView
@@ -242,7 +241,7 @@ const DishesPage: FC = () => {
           )}
 
           {/* 菜品列表 */}
-          <ScrollView scrollY className="flex-1">
+          <ScrollView scrollY style={{ height: 'calc(100vh - 120px)' }}>
             {loading ? (
               <View className="flex flex-col items-center justify-center py-16">
                 <Text className="text-gray-400">加载中...</Text>
@@ -321,7 +320,7 @@ const DishesPage: FC = () => {
         </View>
       </View>
 
-      {/* 底部购物车栏 */}
+      {/* 底部购物车栏 - 固定定位 */}
       <View 
         className="fixed left-0 right-0 bg-white px-4 py-3 z-40"
         style={{ bottom: 0, borderTop: '1px solid #E5E7EB' }}
