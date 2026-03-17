@@ -1,7 +1,7 @@
-import { View, Text, ScrollView, Input } from '@tarojs/components'
+import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Send, Bot, User, Loader } from 'lucide-react-taro'
+import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus, X } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -11,6 +11,7 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  images?: string[] // 支持图片
   timestamp: number
 }
 
@@ -24,12 +25,13 @@ const HomePage: FC = () => {
     {
       id: 'welcome',
       role: 'assistant',
-      content: '你好！我是天霸私厨的智能助手，专注于烹饪和营养领域。有什么我可以帮你的吗？你可以问我：\n\n• 今天买了土豆和鸡蛋，做什么好？\n• 晚餐想吃得清淡点，有什么推荐？\n• 如何挑选新鲜的海鲜？\n• 减肥期间该怎么搭配饮食？',
+      content: '你好！我是天霸私厨的智能助手，专注于烹饪和营养领域。有什么我可以帮你的吗？你可以问我：\n\n• 今天买了土豆和鸡蛋，做什么好？\n• 晚餐想吃得清淡点，有什么推荐？\n• 如何挑选新鲜的海鲜？\n• 减肥期间该怎么搭配饮食？\n\n你也可以发送食材照片，我来帮你识别和推荐！',
       timestamp: Date.now()
     }
   ])
   const [touchStartY, setTouchStartY] = useState(0)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<string[]>([])
 
   const scrollViewRef = useRef<string>('')
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
@@ -59,11 +61,12 @@ const HomePage: FC = () => {
   }, [isWeapp])
 
   // 添加消息
-  const addMessage = useCallback((role: 'user' | 'assistant', content: string) => {
+  const addMessage = useCallback((role: 'user' | 'assistant', content: string, images?: string[]) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       role,
       content,
+      images,
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, newMessage])
@@ -71,31 +74,88 @@ const HomePage: FC = () => {
     return newMessage
   }, [])
 
+  // 选择图片
+  const chooseImage = async () => {
+    try {
+      const result = await Taro.chooseImage({
+        count: 3,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera']
+      })
+
+      console.log('选择的图片:', result.tempFilePaths)
+      setSelectedImages(prev => [...prev, ...result.tempFilePaths].slice(0, 3))
+    } catch (error) {
+      console.error('选择图片失败:', error)
+    }
+  }
+
+  // 移除图片
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // 上传图片到对象存储
+  const uploadImages = async (filePaths: string[]): Promise<string[]> => {
+    const urls: string[] = []
+    for (const filePath of filePaths) {
+      try {
+        const result = await Network.uploadFile({
+          url: '/api/upload/image',
+          filePath,
+          name: 'file'
+        })
+        
+        console.log('上传结果:', result)
+        const imageUrl = (result as any).data?.data?.url
+        
+        if (imageUrl) {
+          urls.push(imageUrl)
+        }
+      } catch (error) {
+        console.error('上传图片失败:', error)
+      }
+    }
+    return urls
+  }
+
   // 发送文本消息
   const sendMessage = async () => {
-    if (!textInput.trim() || isLoading) return
+    if ((!textInput.trim() && selectedImages.length === 0) || isLoading) return
 
     const userMessage = textInput.trim()
-    setTextInput('')
+    const localImages = [...selectedImages]
     
-    // 添加用户消息
-    addMessage('user', userMessage)
+    setTextInput('')
+    setSelectedImages([])
+    
+    // 先显示用户消息（本地图片）
+    addMessage('user', userMessage || '请看这张图片', localImages.length > 0 ? localImages : undefined)
+    
+    // 上传图片到对象存储
+    let uploadedUrls: string[] = []
+    if (localImages.length > 0) {
+      console.log('开始上传图片...')
+      uploadedUrls = await uploadImages(localImages)
+      console.log('上传完成，URLs:', uploadedUrls)
+    }
     
     // 调用AI对话
-    await chat(userMessage)
+    await chat(userMessage, uploadedUrls)
   }
 
   // AI对话
-  const chat = async (userMessage: string) => {
+  const chat = async (userMessage: string, imageUrls: string[] = []) => {
     setIsLoading(true)
     try {
       // 构建消息历史（最近10条）
       const recentMessages = messages.slice(-10).map(m => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        images: m.images
       }))
       
-      console.log('发送对话请求，历史消息数:', recentMessages.length)
+      console.log('发送对话请求，历史消息数:', recentMessages.length, '图片URLs:', imageUrls)
       
       const result = await Network.request({
         url: '/api/ai/chat',
@@ -103,7 +163,7 @@ const HomePage: FC = () => {
         data: {
           messages: [
             ...recentMessages,
-            { role: 'user' as const, content: userMessage }
+            { role: 'user' as const, content: userMessage, images: imageUrls }
           ]
         }
       })
@@ -142,9 +202,6 @@ const HomePage: FC = () => {
       })
 
       console.log('语音识别完整响应:', JSON.stringify(asrResult, null, 2))
-      // 注意：Network.request返回的是Taro.request的结果，有两层data
-      // asrResult.data = { code: 200, msg: "success", data: { text: "..." } }
-      // asrResult.data.data = { text: "..." }
       const recognizedText = (asrResult as any).data?.data?.text || ''
       console.log('解析出的识别文本:', recognizedText)
       
@@ -258,7 +315,7 @@ const HomePage: FC = () => {
           scrollIntoView={scrollViewRef.current}
           scrollWithAnimation
           style={{ 
-            height: 'calc(100vh - 140px)',
+            height: 'calc(100vh - 240px)',
             overflowY: 'auto'
           }}
         >
@@ -268,7 +325,22 @@ const HomePage: FC = () => {
               {msg.role === 'user' ? (
                 <View className="flex flex-row justify-end items-start gap-2">
                   <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
-                    <Text className="text-white text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
+                    {/* 用户图片 */}
+                    {msg.images && msg.images.length > 0 && (
+                      <View className="flex flex-row flex-wrap gap-2 mb-2">
+                        {msg.images.map((img, i) => (
+                          <Image 
+                            key={i}
+                            className="w-24 h-24 rounded-lg"
+                            src={img}
+                            mode="aspectFill"
+                          />
+                        ))}
+                      </View>
+                    )}
+                    {msg.content && (
+                      <Text className="text-white text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
+                    )}
                   </View>
                   <View className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                     <User size={16} color="#6B7280" />
@@ -303,30 +375,43 @@ const HomePage: FC = () => {
           )}
 
           {/* 底部安全区域占位 */}
-          <View style={{ height: '140px' }} />
+          <View style={{ height: '240px' }} />
         </ScrollView>
 
-        {/* 底部输入区域 - 固定在底部，紧贴TabBar */}
+        {/* 底部输入区域 - 固定在底部，下移100px */}
         <View 
           className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40"
-          style={{ bottom: '50px' }}
+          style={{ bottom: '150px' }}
         >
-          <View className="flex flex-row items-center gap-3">
-            {/* 左侧：语音/发送按钮 */}
-            {inputMode === 'voice' ? (
-              <View
-                className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-blue-500' : 'bg-gray-100'}`}
-              >
-                <Mic size={20} color={isRecording ? '#fff' : '#6B7280'} />
-              </View>
-            ) : (
-              <View
-                className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() && !isLoading ? 'bg-blue-500' : 'bg-gray-100'}`}
-                onClick={textInput.trim() && !isLoading ? sendMessage : undefined}
-              >
-                <Send size={18} color={textInput.trim() && !isLoading ? '#fff' : '#9CA3AF'} />
-              </View>
-            )}
+          {/* 已选择的图片预览 */}
+          {selectedImages.length > 0 && (
+            <View className="flex flex-row flex-wrap gap-2 mb-3">
+              {selectedImages.map((img, i) => (
+                <View key={i} className="relative">
+                  <Image 
+                    className="w-16 h-16 rounded-lg"
+                    src={img}
+                    mode="aspectFill"
+                  />
+                  <View 
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center"
+                    onClick={() => removeImage(i)}
+                  >
+                    <X size={12} color="#fff" />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View className="flex flex-row items-center gap-2">
+            {/* 左侧：图片上传按钮 */}
+            <View
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+              onClick={chooseImage}
+            >
+              <ImagePlus size={18} color="#6B7280" />
+            </View>
 
             {/* 中间：输入区域 */}
             {inputMode === 'voice' ? (
@@ -353,17 +438,32 @@ const HomePage: FC = () => {
               </View>
             )}
 
-            {/* 右侧：模式切换按钮 */}
-            <View
-              className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-              onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
-            >
-              {inputMode === 'voice' ? (
+            {/* 右侧：发送/语音切换按钮 */}
+            {inputMode === 'keyboard' ? (
+              <View
+                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${(textInput.trim() || selectedImages.length > 0) && !isLoading ? 'bg-blue-500' : 'bg-gray-100'}`}
+                onClick={(textInput.trim() || selectedImages.length > 0) && !isLoading ? sendMessage : undefined}
+              >
+                <Send size={16} color={(textInput.trim() || selectedImages.length > 0) && !isLoading ? '#fff' : '#9CA3AF'} />
+              </View>
+            ) : (
+              <View
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+                onClick={() => setInputMode('keyboard')}
+              >
                 <Keyboard size={18} color="#6B7280" />
-              ) : (
+              </View>
+            )}
+
+            {/* 最右侧：模式切换 */}
+            {inputMode === 'keyboard' && (
+              <View
+                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+                onClick={() => setInputMode('voice')}
+              >
                 <Mic size={18} color="#6B7280" />
-              )}
-            </View>
+              </View>
+            )}
           </View>
 
           {/* H5提示 */}

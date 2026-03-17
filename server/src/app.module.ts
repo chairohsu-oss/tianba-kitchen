@@ -4,9 +4,10 @@ import { AppService } from '@/app.service'
 import { DishModule } from './modules/dish/dish.module'
 import { AiModule } from './modules/ai/ai.module'
 import { VoiceModule } from './modules/voice/voice.module'
+import { UploadModule } from './modules/upload/upload.module'
 
 @Module({
-  imports: [DishModule, AiModule, VoiceModule],
+  imports: [DishModule, AiModule, VoiceModule, UploadModule],
   controllers: [AppController],
   providers: [AppService],
 })

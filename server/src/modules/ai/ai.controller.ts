@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Body, HttpCode, HttpStatus, Headers } from '@nestjs/common'
 import { AiService } from './ai.service'
 
 @Controller('ai')
@@ -10,8 +10,16 @@ export class AiController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
-  async chat(@Body() body: { messages: Array<{ role: 'user' | 'assistant'; content: string }> }) {
+  async chat(
+    @Body() body: { messages: Array<{ role: 'user' | 'assistant'; content: string; images?: string[] }> },
+    @Headers() headers: Record<string, string>,
+  ) {
     console.log('对话请求 - 消息数量:', body.messages?.length)
+    
+    if (body.messages && body.messages.length > 0) {
+      const lastMsg = body.messages[body.messages.length - 1]
+      console.log('最后一条消息:', lastMsg.content?.substring(0, 50), '图片数:', lastMsg.images?.length || 0)
+    }
 
     if (!body.messages || body.messages.length === 0) {
       return {
@@ -21,7 +29,7 @@ export class AiController {
       }
     }
 
-    const result = await this.aiService.chat(body.messages)
+    const result = await this.aiService.chat(body.messages, headers)
 
     return {
       code: 200,

@@ -1,71 +1,115 @@
 import { Injectable, OnModuleInit } from '@nestjs/common'
-import { SearchClient, Config } from 'coze-coding-dev-sdk'
-import axios from 'axios'
-
-// 火山引擎 ARK API 配置
-interface ArkConfig {
-  apiKey: string
-  endpointId: string
-  baseUrl: string
-}
+import { SearchClient, Config, LLMClient, HeaderUtils, APIError } from 'coze-coding-dev-sdk'
 
 @Injectable()
 export class AiService implements OnModuleInit {
-  private arkConfig: ArkConfig
   private searchClient: SearchClient
+  private llmClient: LLMClient
 
   onModuleInit() {
-    // 从环境变量获取火山引擎配置
-    this.arkConfig = {
-      apiKey: process.env.ARK_API_KEY || '9a7904d2-f095-4689-a12d-36f00c46716f',
-      endpointId: process.env.ARK_ENDPOINT_ID || 'ep-20260317173058-bcxv7',
-      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-    }
-
-    // 配置搜索客户端
+    // 配置SDK
     const config = new Config()
     this.searchClient = new SearchClient(config)
+    this.llmClient = new LLMClient(config)
 
-    console.log('火山引擎豆包 API 初始化完成')
-    console.log('Endpoint ID:', this.arkConfig.endpointId)
+    console.log('LLM客户端初始化完成')
   }
 
   /**
-   * 调用火山引擎 ARK API
+   * 智能对话（烹饪营养万能助手）
    */
-  private async callArkAPI(messages: Array<{ role: string; content: string }>, temperature = 0.7): Promise<string> {
+  async chat(
+    messages: Array<{ role: 'user' | 'assistant'; content: string; images?: string[] }>,
+    headers?: Record<string, string>
+  ): Promise<string> {
+    const systemPrompt = `你是"天霸私厨"的智能助手，一位专业的烹饪和营养顾问。
+
+你的职责：
+1. 回答用户关于烹饪、食材、营养的问题
+2. 提供健康饮食建议
+3. 推荐菜品搭配和制作方法
+4. 解答食品安全和营养知识
+5. 识别食材图片，给出烹饪建议
+
+你的特点：
+- 专业但亲切，像一位经验丰富的家庭厨师
+- 回答简洁实用，避免过于冗长
+- 会主动提供实用的小贴士
+- 关注健康和营养均衡
+
+请用自然的对话方式回复用户，不要使用Markdown格式，直接返回纯文本即可。`
+
     try {
-      console.log('调用火山引擎 API...')
-      console.log('Endpoint ID:', this.arkConfig.endpointId)
-      console.log('Messages:', JSON.stringify(messages, null, 2))
-
-      const response = await axios.post(
-        this.arkConfig.baseUrl,
-        {
-          model: this.arkConfig.endpointId,
-          messages: messages,
-          temperature: temperature,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.arkConfig.apiKey}`,
-          },
-          timeout: 60000,
+      // 提取转发headers
+      const customHeaders = headers ? HeaderUtils.extractForwardHeaders(headers) : undefined
+      
+      // 构建客户端实例
+      const client = customHeaders ? new LLMClient(new Config(), customHeaders) : this.llmClient
+      
+      // 检查是否有图片
+      const hasImages = messages.some(m => m.images && m.images.length > 0)
+      
+      // 构建消息列表
+      const formattedMessages: Array<{
+        role: 'system' | 'user' | 'assistant'
+        content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail?: 'high' | 'low' } }>
+      }> = [
+        { role: 'system', content: systemPrompt }
+      ]
+      
+      for (const msg of messages) {
+        if (msg.images && msg.images.length > 0) {
+          // 多模态消息（包含图片）
+          const content: Array<any> = [
+            { type: 'text', text: msg.content || '请看这张图片' }
+          ]
+          
+          // 添加图片
+          for (const imageUrl of msg.images) {
+            content.push({
+              type: 'image_url',
+              image_url: {
+                url: imageUrl,
+                detail: 'high' as const
+              }
+            })
+          }
+          
+          formattedMessages.push({
+            role: msg.role,
+            content
+          })
+        } else {
+          // 纯文本消息
+          formattedMessages.push({
+            role: msg.role,
+            content: msg.content
+          })
         }
-      )
-
-      console.log('API 响应状态:', response.status)
-      const content = response.data?.choices?.[0]?.message?.content || ''
-      console.log('API 响应内容:', content.substring(0, 200) + '...')
-      return content
-    } catch (error: any) {
-      console.error('火山引擎 API 调用失败:', error.message)
-      if (error.response) {
-        console.error('响应状态:', error.response.status)
-        console.error('响应数据:', JSON.stringify(error.response.data, null, 2))
       }
-      throw error
+
+      console.log('发送消息到LLM，消息数:', formattedMessages.length, '包含图片:', hasImages)
+
+      // 选择模型：如果有图片使用vision模型，否则使用默认模型
+      const model = hasImages ? 'doubao-seed-1-6-vision-250815' : 'doubao-seed-1-8-251228'
+      console.log('使用模型:', model)
+
+      // 调用LLM
+      const response = await client.invoke(formattedMessages, {
+        model,
+        temperature: 0.7,
+      })
+
+      console.log('LLM响应:', response.content.substring(0, 200) + '...')
+      return response.content.trim()
+    } catch (error) {
+      if (error instanceof APIError) {
+        console.error('LLM API错误:', error.message)
+        console.error('状态码:', error.statusCode)
+      } else {
+        console.error('对话失败:', error)
+      }
+      return '抱歉，我暂时无法回复，请稍后再试。'
     }
   }
 
@@ -105,10 +149,13 @@ export class AiService implements OnModuleInit {
 4. 只返回JSON，不要其他内容`
 
     try {
-      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.7)
+      const response = await this.llmClient.invoke([
+        { role: 'system', content: '你是一个JSON生成助手，只返回JSON格式的数据。' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.7 })
 
       // 解析JSON响应
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -154,9 +201,12 @@ ${webItems.map((item, i) => `${i + 1}. ${item.title}: ${item.snippet}`).join('\n
   "tips": "小贴士"
 }`
 
-      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.5)
+      const response = await this.llmClient.invoke([
+        { role: 'system', content: '你是一个JSON生成助手，只返回JSON格式的数据。' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.5 })
 
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -206,11 +256,14 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
 只返回JSON，不要其他内容。`
 
     try {
-      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.7)
+      const response = await this.llmClient.invoke([
+        { role: 'system', content: '你是一个JSON生成助手，只返回JSON格式的数据。' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.7 })
 
-      console.log('生成菜谱响应:', content)
+      console.log('生成菜谱响应:', response.content)
 
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -219,65 +272,6 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
     } catch (error) {
       console.error('生成菜谱失败:', error)
       return this.getDefaultRecipe(input.name || '未知菜品')
-    }
-  }
-
-  /**
-   * 语音识别（使用豆包大模型模拟）
-   */
-  async voiceRecognize(audioData: string): Promise<string> {
-    // 由于火山引擎 ASR 需要单独配置，这里使用大模型模拟
-    // 实际生产环境建议接入专业的 ASR 服务
-    const prompt = `用户发送了一段语音，请模拟识别结果。
-可能的语音内容：
-- "有土豆、西红柿、鸡蛋、排骨"
-- "冰箱里有青菜、豆腐、牛肉"
-- "今天买了鱼、西兰花、蘑菇"
-
-请直接返回一个合理的食材列表字符串，格式如："土豆、西红柿、鸡蛋、排骨"
-只返回文字内容，不要其他格式。`
-
-    try {
-      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.9)
-      return content.trim()
-    } catch (error) {
-      console.error('语音识别失败:', error)
-      return '土豆、西红柿、鸡蛋'
-    }
-  }
-
-  /**
-   * 智能对话（烹饪营养万能助手）
-   */
-  async chat(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
-    const systemPrompt = `你是"天霸私厨"的智能助手，一位专业的烹饪和营养顾问。
-
-你的职责：
-1. 回答用户关于烹饪、食材、营养的问题
-2. 提供健康饮食建议
-3. 推荐菜品搭配和制作方法
-4. 解答食品安全和营养知识
-
-你的特点：
-- 专业但亲切，像一位经验丰富的家庭厨师
-- 回答简洁实用，避免过于冗长
-- 会主动提供实用的小贴士
-- 关注健康和营养均衡
-
-请用自然的对话方式回复用户，不要使用Markdown格式，直接返回纯文本即可。`
-
-    // 构建完整的消息列表
-    const fullMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages.map(m => ({ role: m.role, content: m.content }))
-    ]
-
-    try {
-      const content = await this.callArkAPI(fullMessages, 0.7)
-      return content.trim()
-    } catch (error) {
-      console.error('对话失败:', error)
-      return '抱歉，我暂时无法回复，请稍后再试。'
     }
   }
 
