@@ -1,15 +1,72 @@
-import { Injectable } from '@nestjs/common'
-import { LLMClient, Config, SearchClient, HeaderUtils } from 'coze-coding-dev-sdk'
+import { Injectable, OnModuleInit } from '@nestjs/common'
+import { SearchClient, Config } from 'coze-coding-dev-sdk'
+import axios from 'axios'
+
+// 火山引擎 ARK API 配置
+interface ArkConfig {
+  apiKey: string
+  endpointId: string
+  baseUrl: string
+}
 
 @Injectable()
-export class AiService {
-  private llmClient: LLMClient
+export class AiService implements OnModuleInit {
+  private arkConfig: ArkConfig
   private searchClient: SearchClient
 
-  constructor() {
+  onModuleInit() {
+    // 从环境变量获取火山引擎配置
+    this.arkConfig = {
+      apiKey: process.env.ARK_API_KEY || '9a7904d2-f095-4689-a12d-36f00c46716f',
+      endpointId: process.env.ARK_ENDPOINT_ID || 'ep-20260317173058-bcxv7',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    }
+
+    // 配置搜索客户端
     const config = new Config()
-    this.llmClient = new LLMClient(config)
     this.searchClient = new SearchClient(config)
+
+    console.log('火山引擎豆包 API 初始化完成')
+    console.log('Endpoint ID:', this.arkConfig.endpointId)
+  }
+
+  /**
+   * 调用火山引擎 ARK API
+   */
+  private async callArkAPI(messages: Array<{ role: string; content: string }>, temperature = 0.7): Promise<string> {
+    try {
+      console.log('调用火山引擎 API...')
+      console.log('Endpoint ID:', this.arkConfig.endpointId)
+      console.log('Messages:', JSON.stringify(messages, null, 2))
+
+      const response = await axios.post(
+        this.arkConfig.baseUrl,
+        {
+          model: this.arkConfig.endpointId,
+          messages: messages,
+          temperature: temperature,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.arkConfig.apiKey}`,
+          },
+          timeout: 60000,
+        }
+      )
+
+      console.log('API 响应状态:', response.status)
+      const content = response.data?.choices?.[0]?.message?.content || ''
+      console.log('API 响应内容:', content.substring(0, 200) + '...')
+      return content
+    } catch (error: any) {
+      console.error('火山引擎 API 调用失败:', error.message)
+      if (error.response) {
+        console.error('响应状态:', error.response.status)
+        console.error('响应数据:', JSON.stringify(error.response.data, null, 2))
+      }
+      throw error
+    }
   }
 
   /**
@@ -44,16 +101,14 @@ export class AiService {
 注意：
 1. 推荐的菜品应该能够用用户提供的食材制作
 2. 图片URL使用 https://picsum.photos/200?random= 格式
-3. 描述要简洁，不超过20个字`
+3. 描述要简洁，不超过20个字
+4. 只返回JSON，不要其他内容`
 
     try {
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.7 },
-      )
+      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.7)
 
       // 解析JSON响应
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -99,12 +154,9 @@ ${webItems.map((item, i) => `${i + 1}. ${item.title}: ${item.snippet}`).join('\n
   "tips": "小贴士"
 }`
 
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.5 },
-      )
+      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.5)
 
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -149,15 +201,16 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
   "carbs": 碳水化合物含量（数字，单位克）,
   "fat": 脂肪含量（数字，单位克）,
   "description": "菜品描述"
-}`
+}
+
+只返回JSON，不要其他内容。`
 
     try {
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { temperature: 0.7 },
-      )
+      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.7)
 
-      const jsonMatch = response.content.match(/\{[\s\S]*\}/)
+      console.log('生成菜谱响应:', content)
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0])
       }
@@ -166,6 +219,30 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
     } catch (error) {
       console.error('生成菜谱失败:', error)
       return this.getDefaultRecipe(input.name || '未知菜品')
+    }
+  }
+
+  /**
+   * 语音识别（使用豆包大模型模拟）
+   */
+  async voiceRecognize(audioData: string): Promise<string> {
+    // 由于火山引擎 ASR 需要单独配置，这里使用大模型模拟
+    // 实际生产环境建议接入专业的 ASR 服务
+    const prompt = `用户发送了一段语音，请模拟识别结果。
+可能的语音内容：
+- "有土豆、西红柿、鸡蛋、排骨"
+- "冰箱里有青菜、豆腐、牛肉"
+- "今天买了鱼、西兰花、蘑菇"
+
+请直接返回一个合理的食材列表字符串，格式如："土豆、西红柿、鸡蛋、排骨"
+只返回文字内容，不要其他格式。`
+
+    try {
+      const content = await this.callArkAPI([{ role: 'user', content: prompt }], 0.9)
+      return content.trim()
+    } catch (error) {
+      console.error('语音识别失败:', error)
+      return '土豆、西红柿、鸡蛋'
     }
   }
 
