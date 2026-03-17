@@ -16,8 +16,9 @@ interface Dish {
   cuisine?: string
   calories?: number
   protein?: number
+  carbs?: number
+  fat?: number
   description?: string
-  price?: number
 }
 
 // 分类类型
@@ -98,12 +99,7 @@ const DishesPage: FC = () => {
       const dishData = (result as any).data?.data || []
       console.log('解析出的菜品数据:', dishData.length, '条')
       
-      // 为每个菜品添加随机价格
-      const dishesWithPrice = dishData.map((dish: Dish) => ({
-        ...dish,
-        price: Math.floor(Math.random() * 30) + 18 // 18-48元随机价格
-      }))
-      setDishes(dishesWithPrice)
+      setDishes(dishData)
     } catch (error) {
       console.error('获取菜品失败', error)
       setDishes([])
@@ -162,9 +158,9 @@ const DishesPage: FC = () => {
     setShowCart(false)
   }
 
-  // 计算购物车总价
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + (item.dish.price || 0) * item.quantity, 0)
+  // 计算购物车总热量
+  const getTotalCalories = () => {
+    return cart.reduce((total, item) => total + (item.dish.calories || 0) * item.quantity, 0)
   }
 
   // 计算购物车总数量
@@ -181,7 +177,7 @@ const DishesPage: FC = () => {
     
     Taro.showModal({
       title: '确认下单',
-      content: `共 ${getTotalQuantity()} 道菜，合计 ¥${getTotalPrice().toFixed(2)}`,
+      content: `共 ${getTotalQuantity()} 道菜，总热量 ${getTotalCalories()} 千卡`,
       success: (res) => {
         if (res.confirm) {
           Taro.showToast({ title: '下单成功！', icon: 'success' })
@@ -262,6 +258,7 @@ const DishesPage: FC = () => {
                   <View
                     key={dish.id}
                     className="flex flex-row bg-white rounded-xl mb-3 overflow-hidden shadow-sm border border-gray-100"
+                    onClick={() => Taro.navigateTo({ url: `/pages/dish-detail/index?id=${dish.id}` })}
                   >
                     {/* 菜品图片 */}
                     <Image
@@ -282,9 +279,12 @@ const DishesPage: FC = () => {
                       </View>
                       
                       <View className="flex flex-row items-center justify-between mt-2">
-                        <Text className="text-base font-semibold text-orange-500">
-                          ¥{dish.price}
-                        </Text>
+                        <View className="flex flex-row items-center gap-1">
+                          <Text className="text-sm text-orange-500 font-medium">
+                            {dish.calories || 0}
+                          </Text>
+                          <Text className="text-xs text-gray-400">千卡</Text>
+                        </View>
                         
                         {/* 加减按钮 */}
                         <View className="flex flex-row items-center gap-2">
@@ -292,7 +292,7 @@ const DishesPage: FC = () => {
                             <>
                               <View
                                 className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center"
-                                onClick={() => removeFromCart(dish.id)}
+                                onClick={(e) => { e.stopPropagation(); removeFromCart(dish.id) }}
                               >
                                 <Minus size={14} color="#6B7280" />
                               </View>
@@ -303,7 +303,7 @@ const DishesPage: FC = () => {
                           )}
                           <View
                             className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center"
-                            onClick={() => addToCart(dish)}
+                            onClick={(e) => { e.stopPropagation(); addToCart(dish) }}
                           >
                             <Plus size={14} color="#fff" />
                           </View>
@@ -344,11 +344,14 @@ const DishesPage: FC = () => {
             )}
           </View>
           
-          {/* 价格 */}
+          {/* 热量 */}
           <View className="flex-1 px-4">
-            <Text className="text-xl font-bold text-gray-800">
-              ¥{getTotalPrice().toFixed(2)}
-            </Text>
+            <View className="flex flex-row items-baseline gap-1">
+              <Text className="text-xl font-bold text-orange-500">
+                {getTotalCalories()}
+              </Text>
+              <Text className="text-sm text-gray-400">千卡</Text>
+            </View>
             <Text className="text-xs text-gray-400">
               共 {getTotalQuantity()} 道菜
             </Text>
@@ -403,7 +406,10 @@ const DishesPage: FC = () => {
                     />
                     <View>
                       <Text className="text-sm font-medium text-gray-800">{item.dish.name}</Text>
-                      <Text className="text-sm text-orange-500">¥{item.dish.price}</Text>
+                      <View className="flex flex-row items-center gap-1">
+                        <Text className="text-sm text-orange-500">{item.dish.calories || 0}</Text>
+                        <Text className="text-xs text-gray-400">千卡</Text>
+                      </View>
                     </View>
                   </View>
                   

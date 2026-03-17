@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
-import { useRouter } from '@tarojs/taro'
-import { Flame, Wheat, Droplet, ChefHat } from 'lucide-react-taro'
+import Taro, { useRouter } from '@tarojs/taro'
+import { Flame, Wheat, Droplet, ChefHat, ArrowLeft } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 
@@ -20,6 +20,30 @@ interface DishDetail {
   steps: string[]
   tips: string
   description: string
+}
+
+// 分类和菜系映射
+const categoryMap: Record<string, string> = {
+  'chinese': '中餐',
+  'breakfast': '早餐',
+  'snack': '点心',
+  'dessert': '甜点',
+  'drink': '饮料',
+  'western': '西餐',
+  'japanese': '日餐',
+  'korean': '韩餐',
+  'southeast': '东南亚'
+}
+
+const cuisineMap: Record<string, string> = {
+  'tianba': '天霸家自制',
+  'jiangzhe': '江浙菜',
+  'wenzhou': '温州菜',
+  'yue': '粤菜',
+  'dongbei': '东北菜',
+  'hunan': '湖南菜',
+  'yunnan': '云南菜',
+  'other': '其它'
 }
 
 const DishDetailPage: FC = () => {
@@ -41,46 +65,26 @@ const DishDetailPage: FC = () => {
       const result = await Network.request({
         url: `/api/dishes/${id}`
       })
-      setDish((result as any).data)
+      console.log('菜品详情响应:', result)
+      // 注意嵌套data
+      const dishData = (result as any).data?.data || (result as any).data
+      if (dishData) {
+        setDish(dishData)
+      } else {
+        Taro.showToast({ title: '菜品不存在', icon: 'none' })
+        setTimeout(() => Taro.navigateBack(), 1500)
+      }
     } catch (error) {
       console.error('获取详情失败', error)
-      // 使用模拟数据
-      setDish(getMockDetail())
+      Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       setLoading(false)
     }
   }
 
-  const getMockDetail = (): DishDetail => ({
-    id: id || '1',
-    name: '红烧排骨',
-    images: [
-      'https://picsum.photos/400?random=1',
-      'https://picsum.photos/400?random=2',
-    ],
-    category: 'chinese',
-    cuisine: 'jiangzhe',
-    calories: 450,
-    protein: 28,
-    carbs: 15,
-    fat: 32,
-    ingredients: ['排骨 500g', '葱 2根', '姜 3片', '蒜 4瓣'],
-    seasoning: ['料酒 2勺', '生抽 3勺', '老抽 1勺', '冰糖 30g', '盐 适量'],
-    steps: [
-      '排骨洗净，冷水下锅焯水，撇去浮沫后捞出备用',
-      '锅中放油，加入冰糖小火炒出糖色',
-      '放入排骨翻炒上色，加入葱姜蒜爆香',
-      '加入料酒、生抽、老抽调味',
-      '加入没过排骨的热水，大火烧开后转小火炖40分钟',
-      '最后大火收汁，撒上葱花即可出锅'
-    ],
-    tips: '炒糖色时要用小火，避免炒糊发苦。炖煮时要用热水，肉质会更嫩。',
-    description: '经典家常菜，色泽红亮，肉质软烂，甜咸适口。'
-  })
-
   if (loading) {
     return (
-      <View className="flex items-center justify-center min-h-screen bg-gray-50">
+      <View className="flex flex-col items-center justify-center h-screen bg-white">
         <Text className="text-gray-400">加载中...</Text>
       </View>
     )
@@ -88,117 +92,173 @@ const DishDetailPage: FC = () => {
 
   if (!dish) {
     return (
-      <View className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <Text className="block text-4xl mb-4">🍽️</Text>
+      <View className="flex flex-col items-center justify-center h-screen bg-white">
         <Text className="text-gray-400">菜品不存在</Text>
       </View>
     )
   }
 
   return (
-    <ScrollView scrollY className="min-h-screen bg-gray-50">
-      {/* 图片轮播 */}
-      <View className="relative">
-        <Image
-          className="w-full h-64"
-          src={dish.images[currentImageIndex] || dish.images[0]}
-          mode="aspectFill"
-        />
-        {dish.images.length > 1 && (
-          <View className="absolute bottom-4 left-0 right-0 flex flex-row justify-center gap-1">
-            {dish.images.map((_, index) => (
-              <View
-                key={index}
-                className={`w-2 h-2 rounded-full ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
-                onClick={() => setCurrentImageIndex(index)}
-              />
-            ))}
-          </View>
-        )}
+    <View className="flex flex-col h-screen bg-gray-50">
+      {/* 顶部导航栏 */}
+      <View className="fixed top-0 left-0 right-0 bg-white border-b border-gray-100 px-4 py-3 z-50 flex flex-row items-center">
+        <View onClick={() => Taro.navigateBack()}>
+          <ArrowLeft size={24} color="#374151" />
+        </View>
+        <Text className="flex-1 text-center text-base font-semibold text-gray-800 pr-6">
+          {dish.name}
+        </Text>
       </View>
 
-      <View className="p-4">
-        {/* 基本信息 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-xl font-bold text-gray-800">{dish.name}</Text>
-          <Text className="block text-sm text-gray-500 mt-1">{dish.description}</Text>
+      <ScrollView scrollY className="flex-1 pt-12">
+        {/* 菜品图片 */}
+        <View className="bg-white">
+          <Image
+            className="w-full h-64"
+            src={dish.images && dish.images.length > 0 ? dish.images[currentImageIndex] : 'https://picsum.photos/400?random=' + dish.id}
+            mode="aspectFill"
+          />
+          {/* 图片指示器 */}
+          {dish.images && dish.images.length > 1 && (
+            <View className="flex flex-row justify-center gap-1.5 py-3">
+              {dish.images.map((_, i) => (
+                <View
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${i === currentImageIndex ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  onClick={() => setCurrentImageIndex(i)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
 
-          {/* 营养信息 */}
-          <View className="flex flex-row justify-between mt-4 pt-4 border-t border-gray-100">
-            <View className="flex flex-col items-center">
-              <Flame size={20} color="#6366F1" />
-              <Text className="block text-lg font-semibold text-gray-800 mt-1">{dish.calories}</Text>
-              <Text className="block text-xs text-gray-400">千卡</Text>
+        {/* 基本信息 */}
+        <View className="bg-white mt-2 px-4 py-4">
+          <Text className="block text-xl font-bold text-gray-800 mb-2">{dish.name}</Text>
+          <Text className="block text-sm text-gray-500 mb-3">{dish.description}</Text>
+          
+          {/* 分类标签 */}
+          <View className="flex flex-row gap-2 flex-wrap">
+            <View className="px-3 py-1 bg-blue-50 rounded-full">
+              <Text className="text-xs text-blue-600">{categoryMap[dish.category] || dish.category}</Text>
             </View>
-            <View className="flex flex-col items-center">
-              <Wheat size={20} color="#22C55E" />
-              <Text className="block text-lg font-semibold text-gray-800 mt-1">{dish.protein}g</Text>
-              <Text className="block text-xs text-gray-400">蛋白质</Text>
-            </View>
-            <View className="flex flex-col items-center">
-              <View className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
-                <Text className="text-xs text-amber-600">C</Text>
+            {dish.cuisine && (
+              <View className="px-3 py-1 bg-orange-50 rounded-full">
+                <Text className="text-xs text-orange-600">{cuisineMap[dish.cuisine] || dish.cuisine}</Text>
               </View>
-              <Text className="block text-lg font-semibold text-gray-800 mt-1">{dish.carbs}g</Text>
-              <Text className="block text-xs text-gray-400">碳水</Text>
-            </View>
+            )}
+          </View>
+        </View>
+
+        {/* 营养信息 */}
+        <View className="bg-white mt-2 px-4 py-4">
+          <View className="flex flex-row items-center gap-2 mb-3">
+            <Flame size={18} color="#F97316" />
+            <Text className="text-base font-semibold text-gray-800">营养信息</Text>
+          </View>
+          
+          <View className="flex flex-row justify-around bg-orange-50 rounded-xl py-4">
             <View className="flex flex-col items-center">
-              <Droplet size={20} color="#3B82F6" />
-              <Text className="block text-lg font-semibold text-gray-800 mt-1">{dish.fat}g</Text>
-              <Text className="block text-xs text-gray-400">脂肪</Text>
+              <Text className="text-2xl font-bold text-orange-500">{dish.calories || 0}</Text>
+              <Text className="text-xs text-gray-500 mt-1">千卡</Text>
+            </View>
+            <View className="w-px bg-gray-200" />
+            <View className="flex flex-col items-center">
+              <Text className="text-2xl font-bold text-green-500">{dish.protein || 0}</Text>
+              <Text className="text-xs text-gray-500 mt-1">蛋白质(g)</Text>
+            </View>
+            <View className="w-px bg-gray-200" />
+            <View className="flex flex-col items-center">
+              <Text className="text-2xl font-bold text-amber-500">{dish.carbs || 0}</Text>
+              <Text className="text-xs text-gray-500 mt-1">碳水(g)</Text>
+            </View>
+            <View className="w-px bg-gray-200" />
+            <View className="flex flex-col items-center">
+              <Text className="text-2xl font-bold text-blue-500">{dish.fat || 0}</Text>
+              <Text className="text-xs text-gray-500 mt-1">脂肪(g)</Text>
             </View>
           </View>
         </View>
 
         {/* 食材 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <View className="flex flex-row items-center mb-3">
-            <ChefHat size={20} color="#6366F1" />
-            <Text className="block text-base font-semibold text-gray-800 ml-2">食材</Text>
+        <View className="bg-white mt-2 px-4 py-4">
+          <View className="flex flex-row items-center gap-2 mb-3">
+            <Wheat size={18} color="#10B981" />
+            <Text className="text-base font-semibold text-gray-800">食材清单</Text>
           </View>
-          <View className="flex flex-row flex-wrap gap-2">
-            {dish.ingredients.map((item, index) => (
-              <View key={index} className="bg-indigo-50 rounded-full px-3 py-1">
-                <Text className="text-sm text-indigo-600">{item}</Text>
-              </View>
-            ))}
-          </View>
+          
+          {dish.ingredients && dish.ingredients.length > 0 ? (
+            <View className="flex flex-row flex-wrap gap-2">
+              {dish.ingredients.map((item, i) => (
+                <View key={i} className="px-3 py-1.5 bg-green-50 rounded-lg">
+                  <Text className="text-sm text-green-700">{item}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text className="text-sm text-gray-400">暂无食材信息</Text>
+          )}
         </View>
 
         {/* 配料 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-base font-semibold text-gray-800 mb-3">配料</Text>
-          <View className="flex flex-row flex-wrap gap-2">
-            {dish.seasoning.map((item, index) => (
-              <View key={index} className="bg-gray-100 rounded-full px-3 py-1">
-                <Text className="text-sm text-gray-600">{item}</Text>
-              </View>
-            ))}
+        <View className="bg-white mt-2 px-4 py-4">
+          <View className="flex flex-row items-center gap-2 mb-3">
+            <Droplet size={18} color="#8B5CF6" />
+            <Text className="text-base font-semibold text-gray-800">配料调料</Text>
           </View>
+          
+          {dish.seasoning && dish.seasoning.length > 0 ? (
+            <View className="flex flex-row flex-wrap gap-2">
+              {dish.seasoning.map((item, i) => (
+                <View key={i} className="px-3 py-1.5 bg-purple-50 rounded-lg">
+                  <Text className="text-sm text-purple-700">{item}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text className="text-sm text-gray-400">暂无配料信息</Text>
+          )}
         </View>
 
         {/* 烹饪步骤 */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-          <Text className="block text-base font-semibold text-gray-800 mb-3">烹饪步骤</Text>
-          {dish.steps.map((step, index) => (
-            <View key={index} className="flex flex-row mb-3">
-              <View className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
-                <Text className="text-xs text-white font-medium">{index + 1}</Text>
-              </View>
-              <Text className="flex-1 text-sm text-gray-600 ml-3 leading-6">{step}</Text>
+        <View className="bg-white mt-2 px-4 py-4">
+          <View className="flex flex-row items-center gap-2 mb-3">
+            <ChefHat size={18} color="#F59E0B" />
+            <Text className="text-base font-semibold text-gray-800">烹饪步骤</Text>
+          </View>
+          
+          {dish.steps && dish.steps.length > 0 ? (
+            <View className="flex flex-col gap-3">
+              {dish.steps.map((step, i) => (
+                <View key={i} className="flex flex-row gap-3">
+                  <View className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                    <Text className="text-xs text-white font-medium">{i + 1}</Text>
+                  </View>
+                  <Text className="flex-1 text-sm text-gray-700 leading-relaxed">{step}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+          ) : (
+            <Text className="text-sm text-gray-400">暂无烹饪步骤</Text>
+          )}
         </View>
 
         {/* 小贴士 */}
         {dish.tips && (
-          <View className="bg-amber-50 rounded-2xl p-4 mb-4">
-            <Text className="block text-base font-semibold text-amber-700 mb-2">💡 小贴士</Text>
-            <Text className="block text-sm text-amber-600">{dish.tips}</Text>
+          <View className="bg-white mt-2 px-4 py-4 mb-4">
+            <View className="flex flex-row items-center gap-2 mb-3">
+              <Text className="text-base font-semibold text-gray-800">💡 小贴士</Text>
+            </View>
+            <View className="bg-blue-50 rounded-xl p-3">
+              <Text className="text-sm text-gray-700 leading-relaxed">{dish.tips}</Text>
+            </View>
           </View>
         )}
-      </View>
-    </ScrollView>
+
+        {/* 底部安全区域 */}
+        <View style={{ height: '20px' }} />
+      </ScrollView>
+    </View>
   )
 }
 
