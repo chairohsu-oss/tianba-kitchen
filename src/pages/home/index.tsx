@@ -1,10 +1,18 @@
 import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Search, ChefHat, X, Loader } from 'lucide-react-taro'
+import { Mic, Keyboard, ChefHat, X, Loader, Send, Sparkles } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
+
+// 消息类型
+interface Message {
+  id: string
+  type: 'user' | 'ai'
+  content: string
+  timestamp: number
+}
 
 // 菜品推荐类型
 interface DishRecommend {
@@ -43,8 +51,9 @@ const HomePage: FC = () => {
   const [inputMode, setInputMode] = useState<'voice' | 'keyboard'>('voice')
   const [textInput, setTextInput] = useState('')
   const [isRecording, setIsRecording] = useState(false)
-  const [recorderManager, setRecorderManager] = useState<Taro.RecorderManager | null>(null)
+  const recorderManagerRef = useRef<Taro.RecorderManager | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
   const [recommendResult, setRecommendResult] = useState<RecommendResult | null>(null)
   const [selectedDishes, setSelectedDishes] = useState<SelectedDishes>({
     meat: null,
@@ -54,6 +63,8 @@ const HomePage: FC = () => {
   const [showCookingDetail, setShowCookingDetail] = useState(false)
   const [cookingMethods, setCookingMethods] = useState<CookingMethod[]>([])
   const [loadingCooking, setLoadingCooking] = useState(false)
+
+  const scrollViewRef = useRef<string>('')
 
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
@@ -66,7 +77,6 @@ const HomePage: FC = () => {
       })
       manager.onStop((res) => {
         setIsRecording(false)
-        // 处理录音结果
         handleVoiceInput(res.tempFilePath)
       })
       manager.onError((err) => {
@@ -74,20 +84,30 @@ const HomePage: FC = () => {
         Taro.showToast({ title: '录音失败', icon: 'none' })
         setIsRecording(false)
       })
-      setRecorderManager(manager)
+      recorderManagerRef.current = manager
     }
   }, [isWeapp])
+
+  // 添加消息
+  const addMessage = (type: 'user' | 'ai', content: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type,
+      content,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, newMessage])
+    scrollViewRef.current = `msg-${newMessage.id}`
+  }
 
   // 处理语音输入
   const handleVoiceInput = async (audioPath: string) => {
     setIsLoading(true)
     try {
-      // 读取音频文件
       const fileSystemManager = Taro.getFileSystemManager()
       const arrayBuffer = fileSystemManager.readFileSync(audioPath)
       const base64 = Taro.arrayBufferToBase64(arrayBuffer as ArrayBuffer)
 
-      // 调用语音识别接口
       const asrResult = await Network.request({
         url: '/api/voice/recognize',
         method: 'POST',
@@ -95,10 +115,9 @@ const HomePage: FC = () => {
       })
 
       const recognizedText = (asrResult as any).data?.text || ''
-      setTextInput(recognizedText)
-
-      // 获取推荐
       if (recognizedText) {
+        setTextInput(recognizedText)
+        addMessage('user', recognizedText)
         await getRecommendations(recognizedText)
       }
     } catch (error) {
@@ -115,7 +134,7 @@ const HomePage: FC = () => {
       Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
       return
     }
-    recorderManager?.start({
+    recorderManagerRef.current?.start({
       format: 'wav',
       sampleRate: 16000,
       numberOfChannels: 1
@@ -124,7 +143,7 @@ const HomePage: FC = () => {
 
   // 停止录音
   const stopRecording = () => {
-    recorderManager?.stop()
+    recorderManagerRef.current?.stop()
   }
 
   // 获取AI推荐
@@ -138,12 +157,21 @@ const HomePage: FC = () => {
       })
       setRecommendResult((result as any).data)
       setSelectedDishes({ meat: null, vegetable: null, soup: null })
+      addMessage('ai', `根据您的食材"${ingredients}"，为您推荐以下搭配：`)
     } catch (error) {
       console.error('获取推荐失败', error)
-      Taro.showToast({ title: '获取推荐失败', icon: 'none' })
+      addMessage('ai', '抱歉，获取推荐失败，请稍后再试。')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 发送文本消息
+  const sendMessage = () => {
+    if (!textInput.trim()) return
+    addMessage('user', textInput)
+    getRecommendations(textInput)
+    setTextInput('')
   }
 
   // 选择菜品
@@ -173,6 +201,7 @@ const HomePage: FC = () => {
       })
       setCookingMethods((result as any).data)
       setShowCookingDetail(true)
+      addMessage('ai', `已为您生成「${meat.name}」「${vegetable.name}」「${soup.name}」的详细做法`)
     } catch (error) {
       console.error('获取制作方式失败', error)
       Taro.showToast({ title: '获取制作方式失败', icon: 'none' })
@@ -188,6 +217,7 @@ const HomePage: FC = () => {
     setSelectedDishes({ meat: null, vegetable: null, soup: null })
     setShowCookingDetail(false)
     setCookingMethods([])
+    setMessages([])
   }
 
   const typeNames = {
@@ -197,219 +227,248 @@ const HomePage: FC = () => {
   }
 
   const typeColors = {
-    meat: 'bg-orange-500',
-    vegetable: 'bg-green-500',
+    meat: 'bg-indigo-500',
+    vegetable: 'bg-emerald-500',
     soup: 'bg-blue-500'
   }
 
   return (
-    <View className="flex flex-col min-h-screen bg-gray-50">
-      {/* 顶部输入区域 */}
-      <View className="bg-white p-4 shadow-sm">
-        <Text className="block text-lg font-semibold text-gray-800 mb-3">
-          告诉我你今天有什么食材
-        </Text>
-
-        {/* 输入模式切换 */}
-        <View className="flex flex-row gap-2 mb-3">
-          <View
-            className={`flex-row items-center px-3 py-2 rounded-full ${inputMode === 'voice' ? 'bg-orange-50 border border-orange-200' : 'bg-gray-100'}`}
-            onClick={() => setInputMode('voice')}
-          >
-            <Mic size={16} color={inputMode === 'voice' ? '#FF6B35' : '#6B7280'} />
-            <Text className={`ml-1 text-sm ${inputMode === 'voice' ? 'text-orange-500' : 'text-gray-500'}`}>
-              语音输入
+    <View className="flex flex-col h-screen bg-gray-50">
+      {/* 消息区域 */}
+      <ScrollView 
+        scrollY 
+        className="flex-1 px-4 py-4"
+        scrollIntoView={scrollViewRef.current}
+        scrollWithAnimation
+      >
+        {/* 欢迎消息 */}
+        {messages.length === 0 && (
+          <View className="flex flex-col items-center justify-center py-12">
+            <View className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+              <Sparkles size={32} color="#6366F1" />
+            </View>
+            <Text className="block text-lg font-semibold text-gray-800 mb-2">
+              天霸家厨房
+            </Text>
+            <Text className="block text-sm text-gray-500 text-center">
+              告诉我您今天有什么食材{'\n'}我来为您推荐今日菜单
             </Text>
           </View>
-          <View
-            className={`flex-row items-center px-3 py-2 rounded-full ${inputMode === 'keyboard' ? 'bg-orange-50 border border-orange-200' : 'bg-gray-100'}`}
-            onClick={() => setInputMode('keyboard')}
-          >
-            <Keyboard size={16} color={inputMode === 'keyboard' ? '#FF6B35' : '#6B7280'} />
-            <Text className={`ml-1 text-sm ${inputMode === 'keyboard' ? 'text-orange-500' : 'text-gray-500'}`}>
-              键盘输入
-            </Text>
-          </View>
-        </View>
+        )}
 
-        {/* 输入区域 */}
-        {inputMode === 'voice' ? (
-          <View className="flex flex-col items-center py-6">
-            {isWeapp ? (
-              <>
-                <View
-                  className={`w-20 h-20 rounded-full flex items-center justify-center ${isRecording ? 'bg-orange-500' : 'bg-orange-100'}`}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                >
-                  <Mic size={32} color={isRecording ? '#fff' : '#FF6B35'} />
+        {/* 消息列表 */}
+        {messages.map(msg => (
+          <View key={msg.id} id={`msg-${msg.id}`} className="mb-4">
+            {msg.type === 'user' ? (
+              <View className="flex flex-row justify-end">
+                <View className="bg-indigo-500 rounded-2xl rounded-br-sm px-4 py-3 max-w-[80%]">
+                  <Text className="text-white text-sm leading-relaxed">{msg.content}</Text>
                 </View>
-                <Text className="block text-sm text-gray-500 mt-3">
-                  {isRecording ? '正在录音，松开结束...' : '按住说话'}
-                </Text>
-              </>
+              </View>
             ) : (
-              <View className="flex flex-col items-center py-4 bg-gray-50 rounded-xl w-full">
-                <Text className="block text-gray-500 text-center">
-                  语音功能仅在小程序中可用{'\n'}请使用键盘输入
-                </Text>
+              <View className="flex flex-row justify-start">
+                <View className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] shadow-sm">
+                  <Text className="text-gray-800 text-sm leading-relaxed">{msg.content}</Text>
+                </View>
               </View>
             )}
           </View>
-        ) : (
-          <View className="flex flex-row gap-2">
-            <View className="flex-1 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
-              <Input
-                className="w-full bg-transparent text-base"
-                placeholder="例如：有土豆、西红柿、鸡蛋、排骨..."
-                value={textInput}
-                onInput={(e) => setTextInput(e.detail.value)}
-              />
-            </View>
-            <View
-              className="bg-orange-500 rounded-xl px-4 flex items-center justify-center"
-              onClick={() => textInput && getRecommendations(textInput)}
-            >
-              <Search size={20} color="#fff" />
+        ))}
+
+        {/* 加载状态 */}
+        {isLoading && (
+          <View className="flex flex-row justify-start mb-4">
+            <View className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+              <View className="flex flex-row items-center">
+                <Loader size={16} color="#6366F1" className="animate-spin" />
+                <Text className="text-gray-500 text-sm ml-2">正在思考...</Text>
+              </View>
             </View>
           </View>
         )}
-      </View>
 
-      {/* 加载状态 */}
-      {isLoading && (
-        <View className="flex flex-col items-center justify-center py-16">
-          <Loader size={32} color="#FF6B35" className="animate-spin" />
-          <Text className="block text-gray-500 mt-3">正在分析食材并生成推荐...</Text>
-        </View>
-      )}
-
-      {/* 推荐结果 */}
-      {!isLoading && recommendResult && !showCookingDetail && (
-        <ScrollView scrollY className="flex-1 p-4">
-          <Text className="block text-lg font-semibold text-gray-800 mb-4">
-            为您推荐今日菜单
-          </Text>
-
-          {(['meat', 'vegetable', 'soup'] as const).map(type => (
-            <View key={type} className="mb-6">
-              <View className="flex flex-row items-center mb-3">
-                <View className={`w-1 h-5 rounded-full ${typeColors[type]} mr-2`} />
-                <Text className="block font-medium text-gray-700">{typeNames[type]}</Text>
-              </View>
-              <View className="flex flex-row gap-3">
-                {recommendResult[type].map(dish => (
-                  <View
-                    key={dish.id}
-                    className={`flex-1 bg-white rounded-xl overflow-hidden shadow-sm border-2 ${selectedDishes[type]?.id === dish.id ? 'border-orange-500' : 'border-transparent'}`}
-                    onClick={() => selectDish(type, dish)}
-                  >
-                    <Image
-                      className="w-full h-24"
-                      src={dish.image}
-                      mode="aspectFill"
-                    />
-                    <View className="p-2">
-                      <Text className="block text-sm font-medium text-gray-800 truncate">
-                        {dish.name}
-                      </Text>
+        {/* 推荐结果 */}
+        {!isLoading && recommendResult && !showCookingDetail && (
+          <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+            {(['meat', 'vegetable', 'soup'] as const).map(type => (
+              <View key={type} className="mb-4 last:mb-0">
+                <View className="flex flex-row items-center mb-2">
+                  <View className={`w-1.5 h-4 rounded-full ${typeColors[type]} mr-2`} />
+                  <Text className="block text-sm font-medium text-gray-700">{typeNames[type]}</Text>
+                </View>
+                <View className="flex flex-row gap-2">
+                  {recommendResult[type].map(dish => (
+                    <View
+                      key={dish.id}
+                      className={`flex-1 rounded-xl overflow-hidden border-2 ${selectedDishes[type]?.id === dish.id ? 'border-indigo-500' : 'border-transparent'}`}
+                      onClick={() => selectDish(type, dish)}
+                    >
+                      <Image
+                        className="w-full h-20"
+                        src={dish.image}
+                        mode="aspectFill"
+                      />
+                      <View className="bg-white p-2">
+                        <Text className="block text-xs font-medium text-gray-800 truncate text-center">
+                          {dish.name}
+                        </Text>
+                      </View>
                     </View>
+                  ))}
+                </View>
+              </View>
+            ))}
+
+            {/* 确认按钮 */}
+            <View className="flex flex-row gap-3 mt-4 pt-4 border-t border-gray-100">
+              <View
+                className="flex-1 bg-gray-100 rounded-full py-2.5 flex items-center justify-center"
+                onClick={resetAll}
+              >
+                <Text className="text-gray-600 text-sm font-medium">重新选择</Text>
+              </View>
+              <View
+                className={`flex-1 bg-indigo-500 rounded-full py-2.5 flex items-center justify-center ${loadingCooking ? 'opacity-50' : ''}`}
+                onClick={loadingCooking ? undefined : confirmSelection}
+              >
+                {loadingCooking ? (
+                  <View className="flex flex-row items-center">
+                    <Loader size={14} color="#fff" className="animate-spin" />
+                    <Text className="text-white text-sm font-medium ml-1">加载中...</Text>
                   </View>
-                ))}
+                ) : (
+                  <Text className="text-white text-sm font-medium">查看做法</Text>
+                )}
               </View>
-            </View>
-          ))}
-
-          {/* 确认按钮 */}
-          <View className="flex flex-row gap-3 mt-4">
-            <View
-              className="flex-1 bg-white border border-gray-200 rounded-full py-3 flex items-center justify-center"
-              onClick={resetAll}
-            >
-              <Text className="text-gray-600 font-medium">重新选择</Text>
-            </View>
-            <View
-              className={`flex-1 bg-orange-500 rounded-full py-3 flex items-center justify-center ${loadingCooking ? 'opacity-50' : ''}`}
-              onClick={loadingCooking ? undefined : confirmSelection}
-            >
-              {loadingCooking ? (
-                <View className="flex flex-row items-center">
-                  <Loader size={16} color="#fff" className="animate-spin" />
-                  <Text className="text-white font-medium ml-2">加载中...</Text>
-                </View>
-              ) : (
-                <Text className="text-white font-medium">查看做法</Text>
-              )}
             </View>
           </View>
-        </ScrollView>
-      )}
+        )}
 
-      {/* 制作方式详情 */}
-      {showCookingDetail && cookingMethods.length > 0 && (
-        <ScrollView scrollY className="flex-1 p-4">
-          <View className="flex flex-row items-center justify-between mb-4">
-            <Text className="block text-lg font-semibold text-gray-800">
-              制作方式
-            </Text>
-            <View onClick={resetAll}>
-              <X size={20} color="#6B7280" />
+        {/* 制作方式详情 */}
+        {showCookingDetail && cookingMethods.length > 0 && (
+          <View className="mb-4">
+            <View className="flex flex-row items-center justify-between mb-3">
+              <Text className="block text-base font-semibold text-gray-800">
+                详细做法
+              </Text>
+              <View onClick={resetAll} className="p-1">
+                <X size={18} color="#9CA3AF" />
+              </View>
             </View>
-          </View>
 
-          {cookingMethods.map((method, index) => (
-            <View key={index} className="bg-white rounded-2xl p-4 shadow-sm mb-4">
-              <View className="flex flex-row items-center mb-3">
-                <ChefHat size={20} color="#FF6B35" />
-                <Text className="block text-lg font-semibold text-gray-800 ml-2">
-                  {method.name}
-                </Text>
-              </View>
-
-              {method.image && (
-                <Image
-                  className="w-full h-40 rounded-xl mb-3"
-                  src={method.image}
-                  mode="aspectFill"
-                />
-              )}
-
-              <View className="mb-3">
-                <Text className="block text-sm font-medium text-gray-700 mb-1">食材</Text>
-                <Text className="block text-sm text-gray-600">{method.ingredients.join('、')}</Text>
-              </View>
-
-              <View className="mb-3">
-                <Text className="block text-sm font-medium text-gray-700 mb-1">步骤</Text>
-                {method.steps.map((step, i) => (
-                  <Text key={i} className="block text-sm text-gray-600 mb-1">
-                    {i + 1}. {step}
+            {cookingMethods.map((method, index) => (
+              <View key={index} className="bg-white rounded-2xl p-4 shadow-sm mb-3">
+                <View className="flex flex-row items-center mb-3">
+                  <ChefHat size={18} color="#6366F1" />
+                  <Text className="block text-base font-semibold text-gray-800 ml-2">
+                    {method.name}
                   </Text>
-                ))}
-              </View>
-
-              {method.tips && (
-                <View className="bg-orange-50 rounded-lg p-3">
-                  <Text className="block text-sm text-orange-600">💡 小贴士：{method.tips}</Text>
                 </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
-      )}
 
-      {/* 空状态 */}
-      {!isLoading && !recommendResult && (
-        <View className="flex flex-col items-center justify-center flex-1 py-16">
-          <Text className="block text-5xl mb-4">🍳</Text>
-          <Text className="block text-gray-500 text-center mb-2">
-            告诉我你的食材{'\n'}我来推荐今日菜单
-          </Text>
-          <Text className="block text-sm text-gray-400">
-            语音或键盘输入均可
-          </Text>
+                {method.image && (
+                  <Image
+                    className="w-full h-36 rounded-xl mb-3"
+                    src={method.image}
+                    mode="aspectFill"
+                  />
+                )}
+
+                <View className="mb-3">
+                  <Text className="block text-xs font-medium text-gray-700 mb-1">食材</Text>
+                  <Text className="block text-xs text-gray-600">{method.ingredients.join('、')}</Text>
+                </View>
+
+                <View className="mb-3">
+                  <Text className="block text-xs font-medium text-gray-700 mb-1">步骤</Text>
+                  {method.steps.map((step, i) => (
+                    <Text key={i} className="block text-xs text-gray-600 mb-1">
+                      {i + 1}. {step}
+                    </Text>
+                  ))}
+                </View>
+
+                {method.tips && (
+                  <View className="bg-indigo-50 rounded-lg p-2">
+                    <Text className="block text-xs text-indigo-600">💡 {method.tips}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* 底部占位 */}
+        <View className="h-20" />
+      </ScrollView>
+
+      {/* 底部输入框 - 豆包风格 */}
+      <View 
+        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-3 py-2"
+        style={{ bottom: 50 }}
+      >
+        <View className="flex flex-row items-center gap-2">
+          {/* 左侧：语音按钮 / 发送按钮 */}
+          {inputMode === 'voice' ? (
+            <View
+              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-indigo-500' : 'bg-indigo-50'}`}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+            >
+              <Mic size={20} color={isRecording ? '#fff' : '#6366F1'} />
+            </View>
+          ) : (
+            <View
+              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-indigo-500' : 'bg-gray-100'}`}
+              onClick={textInput.trim() ? sendMessage : undefined}
+            >
+              <Send size={18} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
+            </View>
+          )}
+
+          {/* 中间：输入区域 */}
+          {inputMode === 'voice' ? (
+            <View
+              className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 min-h-[40px] flex items-center justify-center"
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+            >
+              <Text className={`text-sm ${isRecording ? 'text-indigo-500 font-medium' : 'text-gray-400'}`}>
+                {isRecording ? '松开发送，上滑取消' : '按住 说话'}
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-1 bg-gray-50 rounded-full px-4 py-0 min-h-[40px] flex items-center">
+              <Input
+                className="w-full text-sm"
+                placeholder="告诉我您有什么食材..."
+                value={textInput}
+                onInput={(e) => setTextInput(e.detail.value)}
+                onConfirm={sendMessage}
+                confirmType="send"
+              />
+            </View>
+          )}
+
+          {/* 右侧：模式切换按钮 */}
+          <View
+            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+            onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
+          >
+            {inputMode === 'voice' ? (
+              <Keyboard size={18} color="#6B7280" />
+            ) : (
+              <Mic size={18} color="#6B7280" />
+            )}
+          </View>
         </View>
-      )}
+
+        {/* H5提示 */}
+        {!isWeapp && inputMode === 'voice' && (
+          <Text className="block text-xs text-gray-400 text-center mt-1">
+            H5端不支持录音，请切换键盘输入
+          </Text>
+        )}
+      </View>
     </View>
   )
 }

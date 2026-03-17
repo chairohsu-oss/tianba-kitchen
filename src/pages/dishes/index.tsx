@@ -119,10 +119,10 @@ const DishesPage: FC = () => {
           {categories.map(category => (
             <View
               key={category.id}
-              className={`px-4 py-4 flex items-center justify-start ${selectedCategory === category.id ? 'bg-white border-l-2 border-orange-500' : ''}`}
+              className={`px-4 py-4 flex items-center justify-start ${selectedCategory === category.id ? 'bg-white border-l-2 border-indigo-500' : ''}`}
               onClick={() => setSelectedCategory(category.id)}
             >
-              <Text className={`block text-sm ${selectedCategory === category.id ? 'text-orange-500 font-medium' : 'text-gray-600'}`}>
+              <Text className={`block text-sm ${selectedCategory === category.id ? 'text-indigo-500 font-medium' : 'text-gray-600'}`}>
                 {category.name}
               </Text>
             </View>
@@ -142,7 +142,7 @@ const DishesPage: FC = () => {
               {chineseCuisines.map(cuisine => (
                 <View
                   key={cuisine.id}
-                  className={`px-3 py-1 rounded-full flex-shrink-0 ${selectedCuisine === cuisine.id ? 'bg-orange-500' : 'bg-gray-100'}`}
+                  className={`px-3 py-1 rounded-full flex-shrink-0 ${selectedCuisine === cuisine.id ? 'bg-indigo-500' : 'bg-gray-100'}`}
                   onClick={() => handleCuisineScroll(cuisine.id)}
                 >
                   <Text className={`block text-sm ${selectedCuisine === cuisine.id ? 'text-white' : 'text-gray-600'}`}>

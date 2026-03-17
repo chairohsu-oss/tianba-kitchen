@@ -126,7 +126,7 @@ const DishDetailPage: FC = () => {
           {/* 营养信息 */}
           <View className="flex flex-row justify-between mt-4 pt-4 border-t border-gray-100">
             <View className="flex flex-col items-center">
-              <Flame size={20} color="#FF6B35" />
+              <Flame size={20} color="#6366F1" />
               <Text className="block text-lg font-semibold text-gray-800 mt-1">{dish.calories}</Text>
               <Text className="block text-xs text-gray-400">千卡</Text>
             </View>
@@ -153,13 +153,13 @@ const DishDetailPage: FC = () => {
         {/* 食材 */}
         <View className="bg-white rounded-2xl p-4 shadow-sm mb-4">
           <View className="flex flex-row items-center mb-3">
-            <ChefHat size={20} color="#FF6B35" />
+            <ChefHat size={20} color="#6366F1" />
             <Text className="block text-base font-semibold text-gray-800 ml-2">食材</Text>
           </View>
           <View className="flex flex-row flex-wrap gap-2">
             {dish.ingredients.map((item, index) => (
-              <View key={index} className="bg-orange-50 rounded-full px-3 py-1">
-                <Text className="text-sm text-orange-600">{item}</Text>
+              <View key={index} className="bg-indigo-50 rounded-full px-3 py-1">
+                <Text className="text-sm text-indigo-600">{item}</Text>
               </View>
             ))}
           </View>
@@ -182,7 +182,7 @@ const DishDetailPage: FC = () => {
           <Text className="block text-base font-semibold text-gray-800 mb-3">烹饪步骤</Text>
           {dish.steps.map((step, index) => (
             <View key={index} className="flex flex-row mb-3">
-              <View className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+              <View className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
                 <Text className="text-xs text-white font-medium">{index + 1}</Text>
               </View>
               <Text className="flex-1 text-sm text-gray-600 ml-3 leading-6">{step}</Text>

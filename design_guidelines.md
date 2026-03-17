@@ -4,7 +4,7 @@
 
 **应用名称**：天霸家厨房  
 **核心价值**：家庭智慧烹饪助手，让每一餐都有温度  
-**设计风格**：温馨现代风 - 结合家的温暖感与现代简约美学  
+**设计风格**：现代对话式UI - 参考豆包APP的对话框交互风格  
 **目标用户**：注重家庭饮食健康的都市家庭，追求便捷与品质的烹饪爱好者  
 
 ## 配色方案
@@ -12,10 +12,10 @@
 ### 主色板
 | 用途 | 色值 | Tailwind 类名 | 意象来源 |
 |------|------|---------------|----------|
-| 主色-温暖橙 | #FF6B35 | `bg-orange-500` | 厨房炉火的温度 |
-| 主色-浅橙 | #FFF4ED | `bg-orange-50` | 晨光洒在餐桌 |
-| 辅色-清新绿 | #22C55E | `bg-green-500` | 新鲜蔬菜的生命力 |
-| 辅色-浅绿 | #F0FDF4 | `bg-green-50` | 清爽的沙拉盘 |
+| 主色-紫蓝 | #6366F1 | `bg-indigo-500` | 智慧与科技的融合 |
+| 主色-浅紫 | #EEF2FF | `bg-indigo-50` | 柔和的科技感 |
+| 辅色-天蓝 | #3B82F6 | `bg-blue-500` | 清新与信任 |
+| 辅色-浅蓝 | #EFF6FF | `bg-blue-50` | 清爽的交互反馈 |
 
 ### 中性色
 | 用途 | 色值 | Tailwind 类名 |
@@ -32,8 +32,17 @@
 |------|------|---------------|
 | 成功 | #10B981 | `text-emerald-500` |
 | 警告 | #F59E0B | `text-amber-500` |
-| 错误 | #EF4444 | `text-red-500` |
+| 错误 | #6366F1 | `text-indigo-500` |
 | 信息 | #3B82F6 | `text-blue-500` |
+
+### 对话框配色
+| 用途 | 色值 | Tailwind 类名 |
+|------|------|---------------|
+| 用户消息气泡 | #6366F1 | `bg-indigo-500` |
+| AI回复气泡 | #F3F4F6 | `bg-gray-100` |
+| 输入框背景 | #F9FAFB | `bg-gray-50` |
+| 录音按钮激活 | #6366F1 | `bg-indigo-500` |
+| 录音按钮默认 | #EEF2FF | `bg-indigo-50` |
 
 ## 字体规范
 
@@ -60,7 +69,7 @@
 
 ### 主按钮
 ```tsx
-<View className="bg-orange-500 rounded-full py-3 px-6 flex items-center justify-center">
+<View className="bg-indigo-500 rounded-full py-3 px-6 flex items-center justify-center">
   <Text className="text-white font-semibold">确认推荐</Text>
 </View>
 ```
@@ -69,6 +78,44 @@
 ```tsx
 <View className="bg-white border border-gray-200 rounded-full py-3 px-6 flex items-center justify-center">
   <Text className="text-gray-700 font-medium">取消</Text>
+</View>
+```
+
+### 底部输入框（豆包风格）
+```tsx
+<View className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-3" style={{ paddingBottom: 50 }}>
+  <View className="flex flex-row items-center gap-2">
+    {/* 语音按钮 */}
+    <View className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
+      <Mic size={20} color="#6366F1" />
+    </View>
+    {/* 输入框 */}
+    <View className="flex-1 bg-gray-50 rounded-full px-4 py-2 min-h-[40px] flex items-center">
+      <Text className="text-gray-400 text-sm">按住说话</Text>
+    </View>
+    {/* 键盘切换按钮 */}
+    <View className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+      <Keyboard size={20} color="#6B7280" />
+    </View>
+  </View>
+</View>
+```
+
+### 用户消息气泡
+```tsx
+<View className="flex flex-row justify-end mb-3">
+  <View className="bg-indigo-500 rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
+    <Text className="text-white text-sm">{message}</Text>
+  </View>
+</View>
+```
+
+### AI回复气泡
+```tsx
+<View className="flex flex-row justify-start mb-3">
+  <View className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
+    <Text className="text-gray-800 text-sm">{message}</Text>
+  </View>
 </View>
 ```
 
@@ -93,19 +140,12 @@
 ### 分类导航项
 ```tsx
 // 选中态
-<View className="bg-orange-50 border-l-2 border-orange-500 px-4 py-3">
-  <Text className="text-orange-500 font-medium">中餐</Text>
+<View className="bg-indigo-50 border-l-2 border-indigo-500 px-4 py-3">
+  <Text className="text-indigo-500 font-medium">中餐</Text>
 </View>
 // 未选中态
 <View className="bg-white px-4 py-3">
   <Text className="text-gray-600">西餐</Text>
-</View>
-```
-
-### 输入框
-```tsx
-<View className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
-  <Input className="w-full bg-transparent text-base" placeholder="请输入" />
 </View>
 ```
 
@@ -131,6 +171,38 @@
 - 详情页跳转：使用 `Taro.navigateTo()`
 - 返回上一页：使用 `Taro.navigateBack()`
 
+## 对话式交互规范
+
+### 底部输入框
+- 固定在底部 TabBar 上方
+- 左侧：语音按钮（默认激活）
+- 中间：输入区域（显示当前模式提示）
+- 右侧：键盘/语音切换按钮
+
+### 语音输入模式
+- 点击左侧语音按钮或输入区域开始录音
+- 录音时按钮变为激活状态（深色背景）
+- 松开后自动识别并转换为文字
+- 识别结果显示在上方聊天气泡中
+
+### 键盘输入模式
+- 点击右侧切换按钮进入键盘模式
+- 输入框变为可编辑状态
+- 输入完成后点击发送按钮提交
+
+### 消息显示
+- 用户消息显示在右侧（紫色气泡）
+- AI回复显示在左侧（灰色气泡）
+- 消息从底部向上滚动显示
+
+## 菜品分类结构
+
+### 一级分类（大类型）
+中餐、早餐、点心、甜点、饮料、西餐、日餐、韩餐、东南亚
+
+### 中餐二级分类（地方菜系）
+天霸家自制、江浙菜、温州菜、粤菜、东北菜、湖南菜、云南菜、其它
+
 ## 小程序约束
 
 ### 包体积优化
@@ -148,26 +220,12 @@
 - 图片开启懒加载 `lazyLoad`
 - 避免深层嵌套，控制在 10 层以内
 
-## 菜品分类结构
-
-### 一级分类（大类型）
-中餐、早餐、点心、甜点、饮料、西餐、日餐、韩餐、东南亚
-
-### 中餐二级分类（地方菜系）
-天霸家自制、江浙菜、温州菜、粤菜、东北菜、湖南菜、云南菜、其它
-
 ## 交互规范
-
-### 语音输入
-- 点击麦克风按钮开始录音
-- 录音时显示波形动画
-- 松开按钮自动识别转文字
-- 支持切换为键盘输入
 
 ### 推荐交互
 - 展示三道菜推荐（一荤一素一汤）
 - 每种类型展示 3 个选项供选择
-- 选中后高亮显示
+- 选中后高亮显示（紫色边框）
 - 全部选择完成后展示详细制作方式
 
 ### 商品录入
