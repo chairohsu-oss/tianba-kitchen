@@ -121,8 +121,12 @@ const HomePage: FC = () => {
         data: { audioData: base64 }
       })
 
-      console.log('语音识别结果:', asrResult)
-      const recognizedText = (asrResult as any).data?.text || ''
+      console.log('语音识别完整响应:', JSON.stringify(asrResult, null, 2))
+      // 注意：Network.request返回的是Taro.request的结果，有两层data
+      // asrResult.data = { code: 200, msg: "success", data: { text: "..." } }
+      // asrResult.data.data = { text: "..." }
+      const recognizedText = (asrResult as any).data?.data?.text || ''
+      console.log('解析出的识别文本:', recognizedText)
       if (recognizedText) {
         setTextInput(recognizedText)
         addMessage('user', recognizedText)
