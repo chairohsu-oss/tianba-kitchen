@@ -169,7 +169,7 @@ const DishesPage: FC = () => {
   }
 
   // 提交订单
-  const submitOrder = () => {
+  const submitOrder = async () => {
     if (cart.length === 0) {
       Taro.showToast({ title: '购物车是空的', icon: 'none' })
       return
@@ -178,10 +178,31 @@ const DishesPage: FC = () => {
     Taro.showModal({
       title: '确认下单',
       content: `共 ${getTotalQuantity()} 道菜，总热量 ${getTotalCalories()} 千卡`,
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          Taro.showToast({ title: '下单成功！', icon: 'success' })
-          clearCart()
+          try {
+            // 调用后端创建订单
+            await Network.request({
+              url: '/api/orders',
+              method: 'POST',
+              data: {
+                items: cart.map(item => ({
+                  dish: {
+                    id: item.dish.id,
+                    name: item.dish.name,
+                    images: item.dish.images,
+                    calories: item.dish.calories || 0,
+                  },
+                  quantity: item.quantity,
+                })),
+              },
+            })
+            Taro.showToast({ title: '下单成功！', icon: 'success' })
+            clearCart()
+          } catch (error) {
+            console.error('下单失败', error)
+            Taro.showToast({ title: '下单失败', icon: 'none' })
+          }
         }
       }
     })

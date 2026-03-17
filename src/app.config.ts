@@ -3,6 +3,7 @@ export default defineAppConfig({
     'pages/home/index',
     'pages/dishes/index',
     'pages/add/index',
+    'pages/records/index',
     'pages/dish-detail/index',
   ],
   window: {
@@ -34,6 +35,12 @@ export default defineAppConfig({
         text: '录入菜品',
         iconPath: './assets/tabbar/plus-circle.png',
         selectedIconPath: './assets/tabbar/plus-circle-active.png',
+      },
+      {
+        pagePath: 'pages/records/index',
+        text: '美味记录',
+        iconPath: './assets/tabbar/notebook-pen.png',
+        selectedIconPath: './assets/tabbar/notebook-pen-active.png',
       },
     ],
   },
