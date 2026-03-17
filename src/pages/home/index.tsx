@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus, X } from 'lucide-react-taro'
+import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -31,7 +31,6 @@ const HomePage: FC = () => {
   ])
   const [touchStartY, setTouchStartY] = useState(0)
   const [isCancelling, setIsCancelling] = useState(false)
-  const [selectedImages, setSelectedImages] = useState<string[]>([])
 
   const scrollViewRef = useRef<string>('')
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
@@ -74,25 +73,35 @@ const HomePage: FC = () => {
     return newMessage
   }, [])
 
-  // 选择图片
+  // 选择图片并立即发送给AI
   const chooseImage = async () => {
     try {
       const result = await Taro.chooseImage({
-        count: 3,
+        count: 1, // 每次选择一张
         sizeType: ['compressed'],
         sourceType: ['album', 'camera']
       })
 
       console.log('选择的图片:', result.tempFilePaths)
-      setSelectedImages(prev => [...prev, ...result.tempFilePaths].slice(0, 3))
+      const localPath = result.tempFilePaths[0]
+      
+      // 立即显示用户消息（本地图片路径）
+      addMessage('user', '请看这张图片', [localPath])
+      
+      // 上传图片到对象存储
+      console.log('开始上传图片...')
+      const urls = await uploadImages([localPath])
+      console.log('上传完成，URLs:', urls)
+      
+      if (urls.length > 0) {
+        // 调用AI对话
+        await chat('请看这张图片', urls)
+      } else {
+        addMessage('assistant', '图片上传失败，请重试。')
+      }
     } catch (error) {
       console.error('选择图片失败:', error)
     }
-  }
-
-  // 移除图片
-  const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index))
   }
 
   // 上传图片到对象存储
@@ -121,27 +130,16 @@ const HomePage: FC = () => {
 
   // 发送文本消息
   const sendMessage = async () => {
-    if ((!textInput.trim() && selectedImages.length === 0) || isLoading) return
+    if (!textInput.trim() || isLoading) return
 
     const userMessage = textInput.trim()
-    const localImages = [...selectedImages]
-    
     setTextInput('')
-    setSelectedImages([])
     
-    // 先显示用户消息（本地图片）
-    addMessage('user', userMessage || '请看这张图片', localImages.length > 0 ? localImages : undefined)
-    
-    // 上传图片到对象存储
-    let uploadedUrls: string[] = []
-    if (localImages.length > 0) {
-      console.log('开始上传图片...')
-      uploadedUrls = await uploadImages(localImages)
-      console.log('上传完成，URLs:', uploadedUrls)
-    }
+    // 添加用户消息
+    addMessage('user', userMessage)
     
     // 调用AI对话
-    await chat(userMessage, uploadedUrls)
+    await chat(userMessage)
   }
 
   // AI对话
@@ -375,35 +373,14 @@ const HomePage: FC = () => {
           )}
 
           {/* 底部安全区域占位 */}
-          <View style={{ height: '240px' }} />
+          <View style={{ height: '80px' }} />
         </ScrollView>
 
-        {/* 底部输入区域 - 固定在底部，下移100px */}
+        {/* 底部输入区域 - 固定在底部 */}
         <View 
           className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40"
-          style={{ bottom: '150px' }}
+          style={{ bottom: '0px' }}
         >
-          {/* 已选择的图片预览 */}
-          {selectedImages.length > 0 && (
-            <View className="flex flex-row flex-wrap gap-2 mb-3">
-              {selectedImages.map((img, i) => (
-                <View key={i} className="relative">
-                  <Image 
-                    className="w-16 h-16 rounded-lg"
-                    src={img}
-                    mode="aspectFill"
-                  />
-                  <View 
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center"
-                    onClick={() => removeImage(i)}
-                  >
-                    <X size={12} color="#fff" />
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
           <View className="flex flex-row items-center gap-2">
             {/* 左侧：图片上传按钮 */}
             <View
@@ -441,10 +418,10 @@ const HomePage: FC = () => {
             {/* 右侧：发送/语音切换按钮 */}
             {inputMode === 'keyboard' ? (
               <View
-                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${(textInput.trim() || selectedImages.length > 0) && !isLoading ? 'bg-blue-500' : 'bg-gray-100'}`}
-                onClick={(textInput.trim() || selectedImages.length > 0) && !isLoading ? sendMessage : undefined}
+                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() && !isLoading ? 'bg-blue-500' : 'bg-gray-100'}`}
+                onClick={textInput.trim() && !isLoading ? sendMessage : undefined}
               >
-                <Send size={16} color={(textInput.trim() || selectedImages.length > 0) && !isLoading ? '#fff' : '#9CA3AF'} />
+                <Send size={16} color={textInput.trim() && !isLoading ? '#fff' : '#9CA3AF'} />
               </View>
             ) : (
               <View
