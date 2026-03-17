@@ -90,8 +90,14 @@ const DishesPage: FC = () => {
         url: '/api/dishes',
         data: params
       })
-      console.log('获取菜品结果:', result)
-      const dishData = (result as any).data || []
+      console.log('获取菜品完整响应:', JSON.stringify(result, null, 2))
+      
+      // 注意：Network.request返回的是Taro.request的结果，有两层data
+      // result.data = { code: 200, msg: "success", data: [...] }
+      // result.data.data = [...] 这才是菜品数组
+      const dishData = (result as any).data?.data || []
+      console.log('解析出的菜品数据:', dishData.length, '条')
+      
       // 为每个菜品添加随机价格
       const dishesWithPrice = dishData.map((dish: Dish) => ({
         ...dish,
@@ -308,17 +314,17 @@ const DishesPage: FC = () => {
                 ))}
                 
                 {/* 底部占位 */}
-                <View style={{ height: '80px' }} />
+                <View style={{ height: '70px' }} />
               </View>
             )}
           </ScrollView>
         </View>
       </View>
 
-      {/* 底部购物车栏 - 紧贴TabBar */}
+      {/* 底部购物车栏 */}
       <View 
         className="fixed left-0 right-0 bg-white px-4 py-3 z-40"
-        style={{ bottom: 50, borderTop: '1px solid #E5E7EB' }}
+        style={{ bottom: 0, borderTop: '1px solid #E5E7EB' }}
       >
         <View className="flex flex-row items-center justify-between">
           {/* 购物车图标 */}
@@ -367,7 +373,7 @@ const DishesPage: FC = () => {
           <View className="absolute inset-0 bg-black/30" />
           <View 
             className="absolute left-0 right-0 bg-white rounded-t-2xl"
-            style={{ bottom: '110px', maxHeight: '50%' }}
+            style={{ bottom: '60px', maxHeight: '50%' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 标题栏 */}
