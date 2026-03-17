@@ -247,6 +247,41 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
   }
 
   /**
+   * 智能对话（烹饪营养万能助手）
+   */
+  async chat(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+    const systemPrompt = `你是"天霸私厨"的智能助手，一位专业的烹饪和营养顾问。
+
+你的职责：
+1. 回答用户关于烹饪、食材、营养的问题
+2. 提供健康饮食建议
+3. 推荐菜品搭配和制作方法
+4. 解答食品安全和营养知识
+
+你的特点：
+- 专业但亲切，像一位经验丰富的家庭厨师
+- 回答简洁实用，避免过于冗长
+- 会主动提供实用的小贴士
+- 关注健康和营养均衡
+
+请用自然的对话方式回复用户，不要使用Markdown格式，直接返回纯文本即可。`
+
+    // 构建完整的消息列表
+    const fullMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({ role: m.role, content: m.content }))
+    ]
+
+    try {
+      const content = await this.callArkAPI(fullMessages, 0.7)
+      return content.trim()
+    } catch (error) {
+      console.error('对话失败:', error)
+      return '抱歉，我暂时无法回复，请稍后再试。'
+    }
+  }
+
+  /**
    * 默认推荐
    */
   private getDefaultRecommendations() {

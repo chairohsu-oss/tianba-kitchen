@@ -6,6 +6,31 @@ export class AiController {
   constructor(private readonly aiService: AiService) {}
 
   /**
+   * 智能对话（烹饪营养万能助手）
+   */
+  @Post('chat')
+  @HttpCode(HttpStatus.OK)
+  async chat(@Body() body: { messages: Array<{ role: 'user' | 'assistant'; content: string }> }) {
+    console.log('对话请求 - 消息数量:', body.messages?.length)
+
+    if (!body.messages || body.messages.length === 0) {
+      return {
+        code: 400,
+        msg: '消息不能为空',
+        data: null,
+      }
+    }
+
+    const result = await this.aiService.chat(body.messages)
+
+    return {
+      code: 200,
+      msg: 'success',
+      data: { reply: result },
+    }
+  }
+
+  /**
    * 根据食材推荐菜品
    */
   @Post('recommend')
