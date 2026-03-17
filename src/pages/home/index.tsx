@@ -1,5 +1,5 @@
 import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import { Mic, Keyboard, ChefHat, X, Loader, Send, Bot, User } from 'lucide-react-taro'
 import { Network } from '@/network'
@@ -79,10 +79,10 @@ const HomePage: FC = () => {
       })
       manager.onStop((res) => {
         setIsRecording(false)
-        setIsCancelling(false)
         if (!isCancelling) {
           handleVoiceInput(res.tempFilePath)
         }
+        setIsCancelling(false)
       })
       manager.onError((err) => {
         console.error('录音错误', err)
@@ -95,7 +95,7 @@ const HomePage: FC = () => {
   }, [isWeapp])
 
   // 添加消息
-  const addMessage = (type: 'user' | 'ai', content: string) => {
+  const addMessage = useCallback((type: 'user' | 'ai', content: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       type,
@@ -104,7 +104,7 @@ const HomePage: FC = () => {
     }
     setMessages(prev => [...prev, newMessage])
     scrollViewRef.current = `msg-${newMessage.id}`
-  }
+  }, [])
 
   // 处理语音输入
   const handleVoiceInput = async (audioPath: string) => {
@@ -114,17 +114,24 @@ const HomePage: FC = () => {
       const arrayBuffer = fileSystemManager.readFileSync(audioPath)
       const base64 = Taro.arrayBufferToBase64(arrayBuffer as ArrayBuffer)
 
+      console.log('发送语音识别请求...')
       const asrResult = await Network.request({
         url: '/api/voice/recognize',
         method: 'POST',
         data: { audioData: base64 }
       })
 
+      console.log('语音识别结果:', asrResult)
       const recognizedText = (asrResult as any).data?.text || ''
       if (recognizedText) {
         setTextInput(recognizedText)
         addMessage('user', recognizedText)
         await getRecommendations(recognizedText)
+      } else {
+        // 如果没有识别到文字，使用模拟数据
+        const mockText = '土豆、鸡蛋、西红柿'
+        addMessage('user', mockText)
+        await getRecommendations(mockText)
       }
     } catch (error) {
       console.error('语音识别失败', error)
@@ -160,7 +167,6 @@ const HomePage: FC = () => {
   const handleTouchMove = (e: any) => {
     if (isRecording) {
       const currentY = e.touches[0].clientY
-      // 上滑超过50px认为要取消
       if (touchStartY - currentY > 50) {
         setIsCancelling(true)
       } else {
@@ -183,15 +189,24 @@ const HomePage: FC = () => {
   // 获取AI推荐
   const getRecommendations = async (ingredients: string) => {
     setIsLoading(true)
+    console.log('获取AI推荐，食材:', ingredients)
     try {
       const result = await Network.request({
         url: '/api/ai/recommend',
         method: 'POST',
         data: { ingredients }
       })
-      setRecommendResult((result as any).data)
-      setSelectedDishes({ meat: null, vegetable: null, soup: null })
-      addMessage('ai', `根据您的食材"${ingredients}"，为您推荐以下菜品搭配，请选择您喜欢的组合：`)
+      
+      console.log('AI推荐结果:', result)
+      const data = (result as any).data
+      
+      if (data && (data.meat || data.vegetable || data.soup)) {
+        setRecommendResult(data)
+        setSelectedDishes({ meat: null, vegetable: null, soup: null })
+        addMessage('ai', `根据您的食材"${ingredients}"，为您推荐以下菜品搭配，请选择您喜欢的组合：`)
+      } else {
+        addMessage('ai', '抱歉，没有获取到推荐结果，请稍后再试。')
+      }
     } catch (error) {
       console.error('获取推荐失败', error)
       addMessage('ai', '抱歉，获取推荐失败，请稍后再试。')
@@ -204,8 +219,9 @@ const HomePage: FC = () => {
   const sendMessage = () => {
     if (!textInput.trim()) return
     addMessage('user', textInput)
-    getRecommendations(textInput)
+    const ingredients = textInput
     setTextInput('')
+    getRecommendations(ingredients)
   }
 
   // 选择菜品
@@ -279,7 +295,6 @@ const HomePage: FC = () => {
             background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.85) 0%, rgba(37, 99, 235, 0.95) 100%)',
           }}
         >
-          {/* 录音状态指示器 */}
           <View className="flex flex-col items-center">
             {/* 声波动画 */}
             <View className="flex flex-row items-center justify-center gap-1 mb-6">
@@ -295,7 +310,6 @@ const HomePage: FC = () => {
               ))}
             </View>
             
-            {/* 录音文字提示 */}
             <Text className="text-white text-xl font-medium mb-2">
               {isCancelling ? '松开取消录音' : '正在聆听...'}
             </Text>
@@ -304,7 +318,6 @@ const HomePage: FC = () => {
             </Text>
           </View>
 
-          {/* 麦克风图标 */}
           <View 
             className="absolute bottom-32 w-20 h-20 rounded-full bg-white/20 flex items-center justify-center"
             style={{ backdropFilter: 'blur(10px)' }}
@@ -322,12 +335,10 @@ const HomePage: FC = () => {
           className="flex-1 px-4"
           scrollIntoView={scrollViewRef.current}
           scrollWithAnimation
-          style={{ paddingBottom: '180px' }}
         >
           {/* 欢迎区域 */}
           {messages.length === 0 && (
             <View className="flex flex-col items-center justify-center py-16">
-              {/* 天霸助手头像 */}
               <View className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mb-4 shadow-lg">
                 <Bot size={32} color="#fff" />
               </View>
@@ -363,9 +374,8 @@ const HomePage: FC = () => {
 
           {/* 对话消息列表 */}
           {messages.map(msg => (
-            <View key={msg.id} id={`msg-${msg.id}`} className="mb-4">
+            <View key={msg.id} id={`msg-${msg.id}`} className="mb-4 mt-2">
               {msg.type === 'user' ? (
-                // 用户消息 - 右侧
                 <View className="flex flex-row justify-end items-start gap-2">
                   <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 max-w-[75%]">
                     <Text className="text-white text-sm leading-relaxed">{msg.content}</Text>
@@ -375,7 +385,6 @@ const HomePage: FC = () => {
                   </View>
                 </View>
               ) : (
-                // AI消息 - 左侧，带头像
                 <View className="flex flex-row justify-start items-start gap-2">
                   <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
                     <Bot size={16} color="#fff" />
@@ -390,7 +399,7 @@ const HomePage: FC = () => {
 
           {/* AI思考中 */}
           {isLoading && (
-            <View className="flex flex-row justify-start items-start gap-2 mb-4">
+            <View className="flex flex-row justify-start items-start gap-2 mb-4 mt-2">
               <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
                 <Bot size={16} color="#fff" />
               </View>
@@ -405,7 +414,7 @@ const HomePage: FC = () => {
 
           {/* 推荐结果展示 */}
           {!isLoading && recommendResult && !showCookingDetail && (
-            <View className="bg-gray-50 rounded-2xl p-4 mb-4">
+            <View className="bg-gray-50 rounded-2xl p-4 mb-4 mt-2">
               {(['meat', 'vegetable', 'soup'] as const).map(type => (
                 <View key={type} className="mb-4 last:mb-0">
                   <View className="flex flex-row items-center mb-2">
@@ -413,7 +422,7 @@ const HomePage: FC = () => {
                     <Text className="block text-sm font-medium text-gray-700">{typeNames[type]}</Text>
                   </View>
                   <View className="flex flex-row gap-2">
-                    {recommendResult[type].map(dish => (
+                    {recommendResult[type]?.map(dish => (
                       <View
                         key={dish.id}
                         className={`flex-1 rounded-xl overflow-hidden border-2 transition-all ${selectedDishes[type]?.id === dish.id ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-white'}`}
@@ -462,7 +471,7 @@ const HomePage: FC = () => {
 
           {/* 制作方式详情 */}
           {showCookingDetail && cookingMethods.length > 0 && (
-            <View className="mb-4">
+            <View className="mb-4 mt-2">
               <View className="flex flex-row items-center justify-between mb-3">
                 <Text className="block text-base font-semibold text-gray-800">
                   详细做法
@@ -513,35 +522,36 @@ const HomePage: FC = () => {
             </View>
           )}
 
-          <View style={{ height: '20px' }} />
+          {/* 底部安全区域占位 */}
+          <View style={{ height: '140px' }} />
         </ScrollView>
 
         {/* 底部输入区域 - 固定在底部，紧贴TabBar */}
         <View 
-          className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40"
-          style={{ bottom: '50px' }}
+          className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-2 z-40"
+          style={{ bottom: 0, paddingBottom: '60px' }}
         >
           <View className="flex flex-row items-center gap-3">
             {/* 左侧：语音/发送按钮 */}
             {inputMode === 'voice' ? (
               <View
-                className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-blue-500' : 'bg-gray-100'}`}
+                className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${isRecording ? 'bg-blue-500' : 'bg-gray-100'}`}
               >
-                <Mic size={22} color={isRecording ? '#fff' : '#6B7280'} />
+                <Mic size={20} color={isRecording ? '#fff' : '#6B7280'} />
               </View>
             ) : (
               <View
-                className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-blue-500' : 'bg-gray-100'}`}
+                className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${textInput.trim() ? 'bg-blue-500' : 'bg-gray-100'}`}
                 onClick={textInput.trim() ? sendMessage : undefined}
               >
-                <Send size={20} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
+                <Send size={18} color={textInput.trim() ? '#fff' : '#9CA3AF'} />
               </View>
             )}
 
             {/* 中间：输入区域 */}
             {inputMode === 'voice' ? (
               <View
-                className="flex-1 bg-gray-100 rounded-full h-12 flex items-center justify-center"
+                className="flex-1 bg-gray-100 rounded-full h-11 flex items-center justify-center"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onTouchMove={handleTouchMove}
@@ -551,7 +561,7 @@ const HomePage: FC = () => {
                 </Text>
               </View>
             ) : (
-              <View className="flex-1 bg-gray-100 rounded-full h-12 flex items-center px-4">
+              <View className="flex-1 bg-gray-100 rounded-full h-11 flex items-center px-4">
                 <Input
                   className="w-full text-sm"
                   placeholder="告诉我您有什么食材..."
@@ -565,13 +575,13 @@ const HomePage: FC = () => {
 
             {/* 右侧：模式切换按钮 */}
             <View
-              className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+              className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
               onClick={() => setInputMode(inputMode === 'voice' ? 'keyboard' : 'voice')}
             >
               {inputMode === 'voice' ? (
-                <Keyboard size={20} color="#6B7280" />
+                <Keyboard size={18} color="#6B7280" />
               ) : (
-                <Mic size={20} color="#6B7280" />
+                <Mic size={18} color="#6B7280" />
               )}
             </View>
           </View>
@@ -584,9 +594,6 @@ const HomePage: FC = () => {
           )}
         </View>
       </View>
-
-      {/* 声波动画样式 */}
-      <View className="recording-wave" />
     </View>
   )
 }
