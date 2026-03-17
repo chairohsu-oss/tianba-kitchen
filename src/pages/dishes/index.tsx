@@ -315,10 +315,10 @@ const DishesPage: FC = () => {
         </View>
       </View>
 
-      {/* 底部购物车栏 */}
+      {/* 底部购物车栏 - 紧贴TabBar */}
       <View 
-        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-2 z-40"
-        style={{ bottom: '50px' }}
+        className="fixed left-0 right-0 bg-white px-4 py-3 z-40"
+        style={{ bottom: 50, borderTop: '1px solid #E5E7EB' }}
       >
         <View className="flex flex-row items-center justify-between">
           {/* 购物车图标 */}
