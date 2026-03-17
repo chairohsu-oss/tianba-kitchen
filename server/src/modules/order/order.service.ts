@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common'
 
+export interface DishInfo {
+  id: string
+  name: string
+  images: string[]
+  calories: number
+  ingredients?: string[]
+  seasoning?: string[]
+  steps?: string[]
+}
+
 export interface OrderItem {
-  dish: {
-    id: string
-    name: string
-    images: string[]
-    calories: number
-  }
+  dish: DishInfo
   quantity: number
 }
 
@@ -16,17 +21,14 @@ export interface Order {
   totalCalories: number
   createdAt: Date
   status: 'pending' | 'confirmed'
+  mergedIngredients?: string[]
+  mergedSeasoning?: string[]
 }
 
 export interface DeliciousRecord {
   id: string
   date: Date
-  dishes: Array<{
-    id: string
-    name: string
-    images: string[]
-    calories: number
-  }>
+  dishes: DishInfo[]
   totalCalories: number
 }
 
@@ -46,8 +48,57 @@ export class OrderService {
       result = result.filter(o => o.status === status)
     }
     
-    // 按时间倒序排列
+    // 按时间倒序排列，并计算合并的食材配料
     return result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(order => ({
+        ...order,
+        mergedIngredients: this.mergeIngredients(order.items),
+        mergedSeasoning: this.mergeSeasoning(order.items),
+      }))
+  }
+
+  /**
+   * 合并食材清单（去重合并）
+   */
+  private mergeIngredients(items: OrderItem[]): string[] {
+    const ingredientMap = new Map<string, string>()
+    
+    for (const item of items) {
+      if (item.dish.ingredients && Array.isArray(item.dish.ingredients)) {
+        for (const ing of item.dish.ingredients) {
+          // 提取食材名称（去掉用量）
+          const match = ing.match(/^(.+?)(?:\s+\d+.*)?$/)
+          const name = match ? match[1].trim() : ing.trim()
+          if (name && !ingredientMap.has(name)) {
+            ingredientMap.set(name, ing)
+          }
+        }
+      }
+    }
+    
+    return Array.from(ingredientMap.values())
+  }
+
+  /**
+   * 合并配料清单（去重合并）
+   */
+  private mergeSeasoning(items: OrderItem[]): string[] {
+    const seasoningMap = new Map<string, string>()
+    
+    for (const item of items) {
+      if (item.dish.seasoning && Array.isArray(item.dish.seasoning)) {
+        for (const s of item.dish.seasoning) {
+          // 提取配料名称（去掉用量）
+          const match = s.match(/^(.+?)(?:\s+\d+.*)?$/)
+          const name = match ? match[1].trim() : s.trim()
+          if (name && !seasoningMap.has(name)) {
+            seasoningMap.set(name, s)
+          }
+        }
+      }
+    }
+    
+    return Array.from(seasoningMap.values())
   }
 
   /**
@@ -64,6 +115,8 @@ export class OrderService {
       totalCalories,
       createdAt: new Date(),
       status: 'pending',
+      mergedIngredients: this.mergeIngredients(items),
+      mergedSeasoning: this.mergeSeasoning(items),
     }
 
     orders.set(order.id, order)
@@ -89,6 +142,9 @@ export class OrderService {
         name: item.dish.name,
         images: item.dish.images,
         calories: item.dish.calories,
+        ingredients: item.dish.ingredients,
+        seasoning: item.dish.seasoning,
+        steps: item.dish.steps,
       }))
     })
 

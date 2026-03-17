@@ -19,6 +19,9 @@ interface Dish {
   carbs?: number
   fat?: number
   description?: string
+  ingredients?: string[]
+  seasoning?: string[]
+  steps?: string[]
 }
 
 // 分类类型
@@ -93,9 +96,6 @@ const DishesPage: FC = () => {
       })
       console.log('获取菜品完整响应:', JSON.stringify(result, null, 2))
       
-      // 注意：Network.request返回的是Taro.request的结果，有两层data
-      // result.data = { code: 200, msg: "success", data: [...] }
-      // result.data.data = [...] 这才是菜品数组
       const dishData = (result as any).data?.data || []
       console.log('解析出的菜品数据:', dishData.length, '条')
       
@@ -181,7 +181,6 @@ const DishesPage: FC = () => {
       success: async (res) => {
         if (res.confirm) {
           try {
-            // 调用后端创建订单
             await Network.request({
               url: '/api/orders',
               method: 'POST',
@@ -192,6 +191,9 @@ const DishesPage: FC = () => {
                     name: item.dish.name,
                     images: item.dish.images,
                     calories: item.dish.calories || 0,
+                    ingredients: item.dish.ingredients || [],
+                    seasoning: item.dish.seasoning || [],
+                    steps: item.dish.steps || [],
                   },
                   quantity: item.quantity,
                 })),
@@ -209,16 +211,30 @@ const DishesPage: FC = () => {
   }
 
   return (
-    <View className="flex flex-col bg-white">
-      {/* 主内容区域 - 使用flex-row布局 */}
-      <View className="flex flex-row" style={{ minHeight: '100vh' }}>
-        {/* 左侧分类导航 - 固定宽度 */}
-        <View className="w-20 bg-gray-50 flex flex-col flex-shrink-0">
-          <ScrollView scrollY style={{ height: '100vh' }}>
+    <View 
+      className="flex flex-col bg-white overflow-hidden"
+      style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        width: '100vw'
+      }}
+    >
+      {/* 主内容区域 */}
+      <View className="flex flex-row flex-1 overflow-hidden" style={{ width: '100%' }}>
+        {/* 左侧分类导航 */}
+        <View style={{ width: '80px', flexShrink: 0 }} className="bg-gray-50">
+          <ScrollView 
+            scrollY 
+            scrollX={false}
+            className="h-full"
+          >
             {categories.map(category => (
               <View
                 key={category.id}
-                className={`py-4 flex flex-col items-center justify-center ${selectedCategory === category.id ? 'bg-white' : ''}`}
+                className={`py-3 flex flex-col items-center justify-center ${selectedCategory === category.id ? 'bg-white' : ''}`}
                 style={{
                   borderLeftWidth: selectedCategory === category.id ? '3px' : 0,
                   borderLeftColor: '#3B82F6',
@@ -233,16 +249,17 @@ const DishesPage: FC = () => {
               </View>
             ))}
             {/* 底部安全区域 */}
-            <View style={{ height: '80px' }} />
+            <View style={{ height: '100px' }} />
           </ScrollView>
         </View>
 
         {/* 右侧内容区 */}
-        <View className="flex-1 flex flex-col">
+        <View className="flex-1 flex flex-col overflow-hidden">
           {/* 中餐菜系电梯导航 */}
           {selectedCategory === 'chinese' && (
             <ScrollView
               scrollX
+              scrollY={false}
               className="bg-white border-b border-gray-100 px-2 py-2 flex-shrink-0"
             >
               <View className="flex flex-row gap-2">
@@ -262,7 +279,11 @@ const DishesPage: FC = () => {
           )}
 
           {/* 菜品列表 */}
-          <ScrollView scrollY style={{ height: 'calc(100vh - 120px)' }}>
+          <ScrollView 
+            scrollY 
+            scrollX={false}
+            className="flex-1"
+          >
             {loading ? (
               <View className="flex flex-col items-center justify-center py-16">
                 <Text className="text-gray-400">加载中...</Text>
@@ -282,18 +303,19 @@ const DishesPage: FC = () => {
                   >
                     {/* 菜品图片 */}
                     <Image
-                      className="w-24 h-24 flex-shrink-0"
+                      className="flex-shrink-0"
+                      style={{ width: '96px', height: '96px' }}
                       src={getDishImage(dish)}
                       mode="aspectFill"
                     />
                     
                     {/* 菜品信息 */}
-                    <View className="flex-1 p-3 flex flex-col justify-between">
+                    <View className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
                       <View>
-                        <Text className="block text-base font-medium text-gray-800">
+                        <Text className="block text-base font-medium text-gray-800 truncate">
                           {dish.name}
                         </Text>
-                        <Text className="block text-xs text-gray-400 mt-1">
+                        <Text className="block text-xs text-gray-400 mt-1 truncate">
                           {dish.description || '美味佳肴'}
                         </Text>
                       </View>
@@ -334,17 +356,17 @@ const DishesPage: FC = () => {
                 ))}
                 
                 {/* 底部占位 */}
-                <View style={{ height: '70px' }} />
+                <View style={{ height: '80px' }} />
               </View>
             )}
           </ScrollView>
         </View>
       </View>
 
-      {/* 底部购物车栏 - 固定定位 */}
+      {/* 底部购物车栏 */}
       <View 
-        className="fixed left-0 right-0 bg-white px-4 py-3 z-40"
-        style={{ bottom: 0, borderTop: '1px solid #E5E7EB' }}
+        className="bg-white px-4 py-3 flex-shrink-0"
+        style={{ borderTop: '1px solid #E5E7EB' }}
       >
         <View className="flex flex-row items-center justify-between">
           {/* 购物车图标 */}

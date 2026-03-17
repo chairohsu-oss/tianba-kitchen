@@ -29,6 +29,9 @@ export class OrderController {
         name: string
         images: string[]
         calories: number
+        ingredients?: string[]
+        seasoning?: string[]
+        steps?: string[]
       }
       quantity: number
     }>
