@@ -21,7 +21,7 @@ export default defineAppConfig({
     list: [
       {
         pagePath: 'pages/home/index',
-        text: '智能推荐',
+        text: '家人推荐',
         iconPath: './assets/tabbar/sparkles.png',
         selectedIconPath: './assets/tabbar/sparkles-active.png',
       },
