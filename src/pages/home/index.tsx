@@ -1,10 +1,21 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus } from 'lucide-react-taro'
+import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus, Plus, ShoppingCart } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
+
+// 推荐菜品类型
+interface RecommendedDish {
+  id: string
+  name: string
+  images: string[]
+  calories: number
+  category: string
+  cuisine?: string
+  description?: string
+}
 
 // 消息类型
 interface Message {
@@ -12,6 +23,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   images?: string[] // 支持图片
+  recommendedDishes?: RecommendedDish[] // AI推荐的菜品
   timestamp: number
 }
 
@@ -173,9 +185,20 @@ const HomePage: FC = () => {
       
       // 解析响应 - 注意嵌套data
       const reply = (result as any).data?.data?.reply || ''
+      const recommendedDishes = (result as any).data?.data?.recommendedDishes || []
       
       if (reply) {
-        addMessage('assistant', reply)
+        // 添加AI回复，包含推荐菜品
+        const msgId = Date.now().toString()
+        const newMessage: Message = {
+          id: msgId,
+          role: 'assistant',
+          content: reply,
+          recommendedDishes: recommendedDishes.length > 0 ? recommendedDishes : undefined,
+          timestamp: Date.now()
+        }
+        setMessages(prev => [...prev, newMessage])
+        scrollViewRef.current = `msg-${msgId}`
       } else {
         addMessage('assistant', '抱歉，我暂时无法回复，请稍后再试。')
       }
@@ -185,6 +208,87 @@ const HomePage: FC = () => {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 添加菜品到待确认订单
+  const addDishToOrder = async (dish: RecommendedDish) => {
+    try {
+      // 获取当前用户信息
+      let user: { id: string; nickname: string; avatarUrl: string } | null = null
+      try {
+        const userResult = await Network.request({ url: '/api/users/me' })
+        user = (userResult as any).data?.data
+      } catch (e) {
+        console.log('获取用户信息失败')
+      }
+
+      // 获取待确认订单
+      const ordersResult = await Network.request({
+        url: '/api/orders',
+        data: { status: 'pending' }
+      })
+      const pendingOrders = (ordersResult as any).data?.data || []
+
+      if (pendingOrders.length > 0) {
+        // 已有待确认订单，添加菜品
+        const orderId = pendingOrders[0].id
+        await Network.request({
+          url: `/api/orders/${orderId}/items`,
+          method: 'POST',
+          data: {
+            dish: {
+              id: dish.id,
+              name: dish.name,
+              images: dish.images,
+              calories: dish.calories,
+            },
+            quantity: 1
+          }
+        })
+        Taro.showToast({ title: `已添加「${dish.name}」到待确认订单`, icon: 'success' })
+      } else {
+        // 没有待确认订单，创建新订单
+        await Network.request({
+          url: '/api/orders',
+          method: 'POST',
+          data: {
+            items: [{
+              dish: {
+                id: dish.id,
+                name: dish.name,
+                images: dish.images,
+                calories: dish.calories,
+              },
+              quantity: 1
+            }],
+            user: user ? {
+              id: user.id,
+              nickname: user.nickname,
+              avatarUrl: user.avatarUrl,
+            } : undefined,
+          }
+        })
+        Taro.showToast({ title: `已下单「${dish.name}」`, icon: 'success' })
+      }
+    } catch (error) {
+      console.error('下单失败', error)
+      Taro.showToast({ title: '下单失败', icon: 'none' })
+    }
+  }
+
+  // 批量添加菜品到订单
+  const addAllDishesToOrder = async (dishes: RecommendedDish[]) => {
+    Taro.showModal({
+      title: '确认下单',
+      content: `将添加 ${dishes.length} 道菜到待确认订单`,
+      success: async (res) => {
+        if (res.confirm) {
+          for (const dish of dishes) {
+            await addDishToOrder(dish)
+          }
+        }
+      }
+    })
   }
 
   // 处理语音输入
@@ -358,13 +462,62 @@ const HomePage: FC = () => {
                   </View>
                 </View>
               ) : (
-                <View className="flex flex-row justify-start items-start gap-2">
-                  <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                    <Bot size={16} color="#fff" />
+                <View className="flex flex-col items-start gap-2" style={{ maxWidth: '85%' }}>
+                  <View className="flex flex-row justify-start items-start gap-2">
+                    <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                      <Bot size={16} color="#fff" />
+                    </View>
+                    <View className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
+                      <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
+                    </View>
                   </View>
-                  <View className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
-                    <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
-                  </View>
+                  
+                  {/* 推荐菜品卡片 */}
+                  {msg.recommendedDishes && msg.recommendedDishes.length > 0 && (
+                    <View className="ml-10 w-full">
+                      <View className="bg-orange-50 rounded-xl p-3 border border-orange-100">
+                        <View className="flex flex-row items-center justify-between mb-2">
+                          <Text className="text-sm font-medium text-orange-600">为您找到以下菜品</Text>
+                          <View 
+                            className="flex flex-row items-center gap-1 bg-orange-500 px-3 py-1 rounded-full"
+                            onClick={() => addAllDishesToOrder(msg.recommendedDishes!)}
+                          >
+                            <ShoppingCart size={12} color="#fff" />
+                            <Text className="text-xs text-white">全部下单</Text>
+                          </View>
+                        </View>
+                        <View className="flex flex-row flex-wrap gap-2">
+                          {msg.recommendedDishes.map((dish, i) => (
+                            <View 
+                              key={i}
+                              className="bg-white rounded-lg overflow-hidden shadow-sm"
+                              style={{ width: '48%' }}
+                              onClick={() => Taro.navigateTo({ url: `/pages/dish-detail/index?id=${dish.id}` })}
+                            >
+                              <Image 
+                                className="w-full h-20"
+                                src={dish.images?.[0] || `https://picsum.photos/200?random=${dish.id}`}
+                                mode="aspectFill"
+                              />
+                              <View className="p-2">
+                                <Text className="text-sm font-medium text-gray-800 truncate">{dish.name}</Text>
+                                <View className="flex flex-row items-center justify-between mt-1">
+                                  <Text className="text-xs text-orange-500">{dish.calories}千卡</Text>
+                                  <View
+                                    className="flex flex-row items-center gap-0.5 bg-blue-500 px-2 py-0.5 rounded-full"
+                                    onClick={(e) => { e.stopPropagation(); addDishToOrder(dish) }}
+                                  >
+                                    <Plus size={10} color="#fff" />
+                                    <Text className="text-xs text-white">下单</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </View>

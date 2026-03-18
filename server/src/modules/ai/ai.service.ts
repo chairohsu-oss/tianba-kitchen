@@ -1,27 +1,40 @@
-import { Injectable, OnModuleInit } from '@nestjs/common'
+import { Injectable, OnModuleInit, Inject, forwardRef } from '@nestjs/common'
 import { SearchClient, Config, LLMClient, HeaderUtils, APIError } from 'coze-coding-dev-sdk'
+import { DishService, Dish } from '../dish/dish.service'
+import { OrderService } from '../order/order.service'
+import { UserService } from '../user/user.service'
 
 @Injectable()
 export class AiService implements OnModuleInit {
   private searchClient: SearchClient
   private llmClient: LLMClient
 
-  onModuleInit() {
+  constructor(
+    @Inject(forwardRef(() => DishService))
+    private readonly dishService: DishService,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
+    @Inject(forwardRef(() => UserService))
+    private readonly userService: UserService,
+  ) {
     // 配置SDK
     const config = new Config()
     this.searchClient = new SearchClient(config)
     this.llmClient = new LLMClient(config)
+  }
 
+  onModuleInit() {
     console.log('LLM客户端初始化完成')
   }
 
   /**
    * 智能对话（烹饪营养万能助手）
+   * 支持识别用户点菜意图，自动搜索菜品库
    */
   async chat(
     messages: Array<{ role: 'user' | 'assistant'; content: string; images?: string[] }>,
     headers?: Record<string, string>
-  ): Promise<string> {
+  ): Promise<{ reply: string; recommendedDishes?: Dish[] }> {
     const systemPrompt = `你是"天霸私厨"的智能助手，一位专业的烹饪和营养顾问。
 
 你的职责：
@@ -30,12 +43,25 @@ export class AiService implements OnModuleInit {
 3. 推荐菜品搭配和制作方法
 4. 解答食品安全和营养知识
 5. 识别食材图片，给出烹饪建议
+6. 当用户说想吃某道菜时，帮助确认菜品名称
 
 你的特点：
 - 专业但亲切，像一位经验丰富的家庭厨师
 - 回答简洁实用，避免过于冗长
 - 会主动提供实用的小贴士
 - 关注健康和营养均衡
+
+当用户说想吃某道菜时（如"我想吃红烧肉"、"来个宫保鸡丁"等），请在回复最后单独一行输出：
+[菜品:菜名]
+
+例如用户说"我想吃红烧肉"，你在回复中可以这样写：
+好的，红烧肉是经典家常菜，肥而不腻，入口即化。我帮你在菜品库里找找看。
+[菜品:红烧肉]
+
+如果用户提到多道菜，可以用逗号分隔：
+[菜品:红烧肉,清炒时蔬,番茄蛋汤]
+
+如果没有提到具体菜品，就不需要输出这个标记。
 
 请用自然的对话方式回复用户，不要使用Markdown格式，直接返回纯文本即可。`
 
@@ -101,7 +127,39 @@ export class AiService implements OnModuleInit {
       })
 
       console.log('LLM响应:', response.content.substring(0, 200) + '...')
-      return response.content.trim()
+      
+      // 解析菜品标记
+      let reply = response.content.trim()
+      let recommendedDishes: Dish[] = []
+      
+      // 查找菜品标记 [菜品:xxx,yyy]
+      const dishMatch = reply.match(/\[菜品:([^\]]+)\]/)
+      if (dishMatch) {
+        const dishNames = dishMatch[1].split(',').map(name => name.trim())
+        console.log('识别到菜品名称:', dishNames)
+        
+        // 从菜品标记中移除，返回干净的回复
+        reply = reply.replace(/\[菜品:[^\]]+\]/, '').trim()
+        
+        // 搜索菜品库
+        const allDishes = await this.dishService.findAll({})
+        for (const dishName of dishNames) {
+          // 模糊匹配菜品名称
+          const matched = allDishes.filter(d => 
+            d.name.includes(dishName) || dishName.includes(d.name)
+          )
+          if (matched.length > 0) {
+            recommendedDishes.push(...matched.slice(0, 1)) // 每个菜名最多匹配一个
+          }
+        }
+        
+        // 去重
+        recommendedDishes = [...new Map(recommendedDishes.map(d => [d.id, d])).values()]
+        
+        console.log('找到匹配菜品:', recommendedDishes.length, '个')
+      }
+      
+      return { reply, recommendedDishes }
     } catch (error) {
       if (error instanceof APIError) {
         console.error('LLM API错误:', error.message)
@@ -109,7 +167,7 @@ export class AiService implements OnModuleInit {
       } else {
         console.error('对话失败:', error)
       }
-      return '抱歉，我暂时无法回复，请稍后再试。'
+      return { reply: '抱歉，我暂时无法回复，请稍后再试。' }
     }
   }
 

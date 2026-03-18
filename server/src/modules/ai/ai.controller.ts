@@ -7,6 +7,7 @@ export class AiController {
 
   /**
    * 智能对话（烹饪营养万能助手）
+   * 支持识别用户点菜意图，自动搜索菜品库并返回推荐菜品
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
@@ -34,7 +35,10 @@ export class AiController {
     return {
       code: 200,
       msg: 'success',
-      data: { reply: result },
+      data: {
+        reply: result.reply,
+        recommendedDishes: result.recommendedDishes || [],
+      },
     }
   }
 
