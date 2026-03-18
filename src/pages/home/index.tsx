@@ -20,6 +20,8 @@ const HomePage: FC = () => {
   const [textInput, setTextInput] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const recorderManagerRef = useRef<Taro.RecorderManager | null>(null)
+  const isCancellingRef = useRef(false)
+  const handleVoiceInputRef = useRef<(audioPath: string) => void>(() => {})
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -44,14 +46,15 @@ const HomePage: FC = () => {
       })
       manager.onStop((res) => {
         setIsRecording(false)
-        if (!isCancelling) {
-          handleVoiceInput(res.tempFilePath)
+        // 使用 ref 来避免闭包问题
+        if (!isCancellingRef.current) {
+          handleVoiceInputRef.current(res.tempFilePath)
         }
         setIsCancelling(false)
       })
       manager.onError((err) => {
         console.error('录音错误', err)
-        Taro.showToast({ title: '录音失败', icon: 'none' })
+        Taro.showToast({ title: '录音失败，请检查麦克风权限', icon: 'none', duration: 2000 })
         setIsRecording(false)
         setIsCancelling(false)
       })
@@ -185,7 +188,7 @@ const HomePage: FC = () => {
   }
 
   // 处理语音输入
-  const handleVoiceInput = async (audioPath: string) => {
+  const handleVoiceInput = useCallback(async (audioPath: string) => {
     setIsLoading(true)
     try {
       const fileSystemManager = Taro.getFileSystemManager()
@@ -215,7 +218,17 @@ const HomePage: FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [addMessage, chat])
+
+  // 更新 ref
+  useEffect(() => {
+    handleVoiceInputRef.current = handleVoiceInput
+  }, [handleVoiceInput])
+
+  // 同步 isCancelling 到 ref
+  useEffect(() => {
+    isCancellingRef.current = isCancelling
+  }, [isCancelling])
 
   // 开始录音
   const startRecording = () => {
