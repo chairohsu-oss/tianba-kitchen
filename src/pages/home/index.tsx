@@ -47,6 +47,7 @@ const HomePage: FC = () => {
   const [isCancelling, setIsCancelling] = useState(false)
 
   const scrollViewRef = useRef<string>('')
+  const isLoadingRef = useRef(false)
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
   // 检查登录状态
@@ -56,6 +57,11 @@ const HomePage: FC = () => {
       Taro.redirectTo({ url: '/pages/login/index' })
     }
   }, [])
+
+  // 同步 isLoading 到 ref
+  useEffect(() => {
+    isLoadingRef.current = isLoading
+  }, [isLoading])
 
   // 初始化录音管理器
   useEffect(() => {
@@ -308,6 +314,12 @@ const HomePage: FC = () => {
 
   // 处理语音输入
   const handleVoiceInput = useCallback(async (audioPath: string) => {
+    // 防止重复调用 - 使用 ref 检查避免依赖问题
+    if (isLoadingRef.current) {
+      console.log('正在处理中，忽略新的语音输入')
+      return
+    }
+    
     setIsLoading(true)
     try {
       const fileSystemManager = Taro.getFileSystemManager()
@@ -330,11 +342,11 @@ const HomePage: FC = () => {
         await chat(recognizedText)
       } else {
         Taro.showToast({ title: '未识别到语音内容', icon: 'none' })
+        setIsLoading(false)
       }
     } catch (error) {
       console.error('语音识别失败', error)
       Taro.showToast({ title: '语音识别失败', icon: 'none' })
-    } finally {
       setIsLoading(false)
     }
   }, [addMessage, chat])
@@ -574,13 +586,13 @@ const HomePage: FC = () => {
             {/* 中间：输入区域 */}
             {inputMode === 'voice' ? (
               <View
-                className="flex-1 bg-gray-100 rounded-full h-11 flex items-center justify-center"
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchMove}
+                className={`flex-1 rounded-full h-11 flex items-center justify-center ${isLoading ? 'bg-gray-200' : 'bg-gray-100'}`}
+                onTouchStart={isLoading ? undefined : handleTouchStart}
+                onTouchEnd={isLoading ? undefined : handleTouchEnd}
+                onTouchMove={isLoading ? undefined : handleTouchMove}
               >
-                <Text className="text-sm text-gray-500">
-                  按住 说话
+                <Text className={`text-sm ${isLoading ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {isLoading ? '处理中...' : '按住 说话'}
                 </Text>
               </View>
             ) : (
