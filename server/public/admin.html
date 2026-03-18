@@ -19,6 +19,9 @@
     .role-sous_chef { background: #DBEAFE; color: #2563EB; }
     .role-order_clerk { background: #D1FAE5; color: #059669; }
     .role-guest { background: #F3F4F6; color: #6B7280; }
+    .verified-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+    .verified-yes { background: #D1FAE5; color: #059669; }
+    .verified-no { background: #FEE2E2; color: #DC2626; }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -45,6 +48,9 @@
           </button>
           <button onclick="switchTab('users')" id="tab-users" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
             👥 用户管理
+          </button>
+          <button onclick="switchTab('verification')" id="tab-verification" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
+            🔐 验证管理
           </button>
           <button onclick="switchTab('orders')" id="tab-orders" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
             📋 订单管理
@@ -123,7 +129,7 @@
     <!-- 用户管理内容 -->
     <div id="content-users" class="max-w-7xl mx-auto px-4 py-4 hidden">
       <!-- 用户统计 -->
-      <div class="grid grid-cols-4 gap-4 mb-4">
+      <div class="grid grid-cols-5 gap-4 mb-4">
         <div class="bg-white rounded-xl p-4 shadow-sm">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-xl">👨‍🍳</div>
@@ -160,6 +166,15 @@
             </div>
           </div>
         </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-xl">🚫</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-unverified">0</div>
+              <div class="text-sm text-gray-500">未验证</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 用户列表 -->
@@ -169,7 +184,7 @@
             <tr>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">头像</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">昵称</th>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">微信ID</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">验证状态</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">角色</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">权限</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">注册时间</th>
@@ -179,6 +194,83 @@
           <tbody id="users-tbody">
             <tr>
               <td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 验证管理内容 -->
+    <div id="content-verification" class="max-w-7xl mx-auto px-4 py-4 hidden">
+      <!-- 说明卡片 -->
+      <div class="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">🔐</span>
+          <div>
+            <h3 class="font-semibold text-gray-800 mb-1">验证码管理</h3>
+            <p class="text-sm text-gray-600">验证码用于控制小程序访问权限，只有输入正确验证码的用户才能使用完整功能。</p>
+            <p class="text-sm text-gray-600 mt-1">新用户默认为「客人」角色，验证后自动升级为「下单员」。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 验证码统计 -->
+      <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-xl">🎫</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-total-codes">0</div>
+              <div class="text-sm text-gray-500">验证码总数</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-xl">✅</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-unused-codes">0</div>
+              <div class="text-sm text-gray-500">未使用</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">👥</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-used-codes">0</div>
+              <div class="text-sm text-gray-500">已使用</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 添加验证码 -->
+      <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+        <h3 class="font-semibold text-gray-800 mb-3">添加新验证码</h3>
+        <div class="flex gap-3">
+          <input type="text" id="new-code" placeholder="输入验证码（如：FAMILY2024）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <input type="text" id="new-code-desc" placeholder="描述（如：王阿姨一家）" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <button onclick="createVerificationCode()" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition">添加</button>
+        </div>
+      </div>
+
+      <!-- 验证码列表 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">验证码</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">描述</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">状态</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">使用者</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">创建时间</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">操作</th>
+            </tr>
+          </thead>
+          <tbody id="verification-tbody">
+            <tr>
+              <td colspan="6" class="px-4 py-8 text-center text-gray-400">加载中...</td>
             </tr>
           </tbody>
         </table>
@@ -400,6 +492,7 @@
     let dishes = []
     let users = []
     let orders = []
+    let verificationCodes = []
     let deleteDishId = null
     let currentTab = 'dishes'
 
@@ -417,13 +510,6 @@
       'sous_chef': '领班',
       'order_clerk': '下单员',
       'guest': '客人'
-    }
-    const permissionMap = {
-      'place_order': '下单',
-      'modify_order': '修改订单',
-      'confirm_order': '确认订单',
-      'upload_dish': '上传菜品',
-      'manage_users': '管理用户'
     }
     const rolePermissions = {
       'head_chef': ['下单', '修改订单', '确认订单', '上传菜品', '管理用户'],
@@ -451,6 +537,7 @@
       if (tab === 'dishes') loadDishes()
       else if (tab === 'users') loadUsers()
       else if (tab === 'orders') loadOrders()
+      else if (tab === 'verification') loadVerificationCodes()
     }
 
     // 加载菜品列表
@@ -507,6 +594,20 @@
       }
     }
 
+    // 加载验证码列表
+    async function loadVerificationCodes() {
+      try {
+        const response = await fetch(`${API_BASE}/users/verification-codes/all`)
+        const result = await response.json()
+        verificationCodes = result.data || []
+        renderVerificationCodes()
+        updateVerificationCounts()
+      } catch (error) {
+        console.error('加载验证码失败:', error)
+        document.getElementById('verification-tbody').innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">加载失败</td></tr>'
+      }
+    }
+
     // 渲染菜品列表
     function renderDishes() {
       const tbody = document.getElementById('dishes-tbody')
@@ -559,7 +660,11 @@
             <img src="${user.avatarUrl}" class="w-10 h-10 rounded-full" onerror="this.src='https://via.placeholder.com/40?text=User'">
           </td>
           <td class="px-4 py-3 font-medium text-gray-800">${user.nickname}</td>
-          <td class="px-4 py-3 text-sm text-gray-500">${user.wechatId}</td>
+          <td class="px-4 py-3">
+            <span class="verified-badge ${user.verified ? 'verified-yes' : 'verified-no'}">
+              ${user.verified ? '✅ 已验证' : '❌ 未验证'}
+            </span>
+          </td>
           <td class="px-4 py-3">
             <span class="role-badge role-${user.role}">${roleMap[user.role] || user.role}</span>
           </td>
@@ -570,7 +675,8 @@
           </td>
           <td class="px-4 py-3 text-sm text-gray-500">${new Date(user.createdAt).toLocaleString('zh-CN')}</td>
           <td class="px-4 py-3">
-            <button onclick="openUserRoleModal('${user.id}')" class="text-orange-500 hover:text-orange-700 text-sm">修改角色</button>
+            <button onclick="openUserRoleModal('${user.id}')" class="text-orange-500 hover:text-orange-700 text-sm mr-2">修改角色</button>
+            ${!user.verified ? `<button onclick="resetUserVerification('${user.id}')" class="text-red-500 hover:text-red-700 text-sm">重置验证</button>` : ''}
           </td>
         </tr>
       `).join('')
@@ -616,6 +722,43 @@
       `).join('')
     }
 
+    // 渲染验证码列表
+    function renderVerificationCodes() {
+      const tbody = document.getElementById('verification-tbody')
+      
+      if (verificationCodes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">暂无验证码</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = verificationCodes.map(vc => {
+        const usedUser = vc.usedBy ? users.find(u => u.id === vc.usedBy) : null
+        return `
+          <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-sm text-gray-800">${vc.code}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${vc.description || '-'}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-1 rounded text-xs ${vc.usedBy ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}">
+                ${vc.usedBy ? '已使用' : '未使用'}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              ${usedUser ? `
+                <div class="flex items-center gap-2">
+                  <img src="${usedUser.avatarUrl}" class="w-6 h-6 rounded-full">
+                  <span class="text-sm text-gray-800">${usedUser.nickname}</span>
+                </div>
+              ` : '-'}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">${new Date(vc.createdAt).toLocaleString('zh-CN')}</td>
+            <td class="px-4 py-3">
+              <button onclick="deleteVerificationCode('${vc.code}')" class="text-red-500 hover:text-red-700 text-sm">删除</button>
+            </td>
+          </tr>
+        `
+      }).join('')
+    }
+
     // 更新统计信息
     function updateStats() {
       document.getElementById('stats-info').innerHTML = `菜品总数: <span class="font-semibold text-orange-500">${dishes.length}</span>`
@@ -624,12 +767,106 @@
     // 更新用户统计
     function updateUserCounts() {
       const counts = { head_chef: 0, sous_chef: 0, order_clerk: 0, guest: 0 }
-      users.forEach(u => counts[u.role] = (counts[u.role] || 0) + 1)
+      let unverifiedCount = 0
+      users.forEach(u => {
+        counts[u.role] = (counts[u.role] || 0) + 1
+        if (!u.verified) unverifiedCount++
+      })
       
       Object.keys(counts).forEach(role => {
         const el = document.getElementById(`count-${role}`)
         if (el) el.textContent = counts[role]
       })
+      
+      const unverifiedEl = document.getElementById('count-unverified')
+      if (unverifiedEl) unverifiedEl.textContent = unverifiedCount
+    }
+
+    // 更新验证码统计
+    function updateVerificationCounts() {
+      const total = verificationCodes.length
+      const used = verificationCodes.filter(vc => vc.usedBy).length
+      const unused = total - used
+      
+      document.getElementById('count-total-codes').textContent = total
+      document.getElementById('count-unused-codes').textContent = unused
+      document.getElementById('count-used-codes').textContent = used
+    }
+
+    // 创建验证码
+    async function createVerificationCode() {
+      const code = document.getElementById('new-code').value.trim()
+      const description = document.getElementById('new-code-desc').value.trim()
+      
+      if (!code) {
+        alert('请输入验证码')
+        return
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/users/verification-codes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, description })
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          document.getElementById('new-code').value = ''
+          document.getElementById('new-code-desc').value = ''
+          loadVerificationCodes()
+          alert('验证码创建成功')
+        } else {
+          alert('创建失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('创建失败:', error)
+        alert('创建失败')
+      }
+    }
+
+    // 删除验证码
+    async function deleteVerificationCode(code) {
+      if (!confirm(`确定要删除验证码 "${code}" 吗？`)) return
+
+      try {
+        const response = await fetch(`${API_BASE}/users/verification-codes/${encodeURIComponent(code)}`, {
+          method: 'DELETE'
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          loadVerificationCodes()
+          alert('删除成功')
+        } else {
+          alert('删除失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
+      }
+    }
+
+    // 重置用户验证状态
+    async function resetUserVerification(userId) {
+      if (!confirm('确定要重置该用户的验证状态吗？用户将需要重新验证。')) return
+
+      try {
+        const response = await fetch(`${API_BASE}/users/${userId}/reset-verification`, {
+          method: 'POST'
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          loadUsers()
+          alert('重置成功')
+        } else {
+          alert('重置失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('重置失败:', error)
+        alert('重置失败')
+      }
     }
 
     // 打开添加菜品弹窗
