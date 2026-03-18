@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Send, Bot, User, Loader, ImagePlus, Plus, ShoppingCart } from 'lucide-react-taro'
+import { Mic, Keyboard, Send, ChefHat, User, Loader, ImagePlus, Plus, ShoppingCart } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -552,8 +552,8 @@ const HomePage: FC = () => {
               ) : (
                 <View className="flex flex-col items-start gap-2" style={{ maxWidth: '85%' }}>
                   <View className="flex flex-row justify-start items-start gap-2">
-                    <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                      <Bot size={16} color="#fff" />
+                    <View className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0">
+                      <ChefHat size={16} color="#fff" />
                     </View>
                     <View className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
                       <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
@@ -614,8 +614,8 @@ const HomePage: FC = () => {
           {/* AI思考中 */}
           {isLoading && (
             <View className="flex flex-row justify-start items-start gap-2 mb-4 mt-2">
-              <View className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                <Bot size={16} color="#fff" />
+              <View className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0">
+                <ChefHat size={16} color="#fff" />
               </View>
               <View className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
                 <View className="flex flex-row items-center gap-2">

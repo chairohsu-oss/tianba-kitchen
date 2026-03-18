@@ -1,7 +1,7 @@
 import { View, Text, Image, Input, Picker, ScrollView } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, Bot, User, Sparkles, Check } from 'lucide-react-taro'
+import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, ChefHat, User, Sparkles, Check } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -60,7 +60,7 @@ const AddDishPage: FC = () => {
     {
       id: 'welcome',
       role: 'assistant',
-      content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你自动计算热量和营养成分。\n\n例如：\n• 主料：五花肉500克、葱姜蒜\n• 配料：料酒、生抽、老抽、冰糖\n• 做法：切块焯水、炒糖色、炖煮1小时',
+      content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你计算热量和营养成分。\n\n例如：\n• 主料：五花肉500克、葱姜蒜\n• 配料：料酒、生抽、老抽、冰糖\n• 做法：切块焯水、炒糖色、炖煮1小时',
       timestamp: Date.now()
     }
   ])
@@ -382,7 +382,7 @@ const AddDishPage: FC = () => {
         {
           id: 'welcome',
           role: 'assistant',
-          content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你自动计算热量和营养成分。',
+          content: '请告诉我这道菜的食材、配料和烹饪方式，我会帮你计算热量和营养成分。',
           timestamp: Date.now()
         }
       ])
@@ -566,8 +566,8 @@ const AddDishPage: FC = () => {
                     </View>
                   ) : (
                     <View className="flex flex-row justify-start items-start gap-2">
-                      <View className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                        <Bot size={14} color="#fff" />
+                      <View className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0">
+                        <ChefHat size={14} color="#fff" />
                       </View>
                       <View className="bg-white rounded-2xl rounded-bl-md px-3 py-2 max-w-[85%] shadow-sm">
                         <Text className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
@@ -735,7 +735,7 @@ const AddDishPage: FC = () => {
           ) : (
             <>
               <Sparkles size={18} color="#fff" />
-              <Text className="text-white font-medium ml-2">自动生成菜品</Text>
+              <Text className="text-white font-medium ml-2">生成菜品</Text>
             </>
           )}
         </View>
