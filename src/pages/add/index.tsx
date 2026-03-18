@@ -123,85 +123,73 @@ const AddDishPage: FC = () => {
     setImages(images.filter((_, i) => i !== index))
   }
 
-  // D模块：补充说明图片选择（不上传，只保存本地路径）
+  // D模块：补充说明图片选择（用于AI识别）
   const chooseSupplementImage = (sourceType: 'album' | 'camera') => {
     setShowSupplementImagePicker(false)
     Taro.chooseImage({
       count: 1,
       sourceType: [sourceType],
-      success: (res) => {
+      success: async (res) => {
         const imagePath = res.tempFilePaths[0]
-        // 只添加到图片列表，不自动调用AI识别
+        
+        // 添加到补充说明图片列表
         setSupplementImages(prev => [...prev, imagePath])
+        
+        // 上传图片并调用AI识别
+        try {
+          // 上传图片到服务器
+          const uploadResult = await Network.uploadFile({
+            url: '/api/upload',
+            filePath: imagePath,
+            name: 'file'
+          })
+          
+          const imageUrl = (uploadResult as any).data?.data?.url || (uploadResult as any).data?.url
+          console.log('图片上传成功:', imageUrl)
+          
+          if (!imageUrl) {
+            Taro.showToast({ title: '图片上传失败', icon: 'none' })
+            return
+          }
+          
+          // 显示用户上传的图片消息
+          addMessage('user', '📸 [上传了一张图片]')
+          
+          // 调用AI识别图片 - 使用正确的格式
+          Taro.showLoading({ title: 'AI识别中...' })
+          
+          // 构建包含图片的消息格式
+          const chatMessages = [
+            {
+              role: 'user' as const,
+              content: '请识别这张图片中的食材和菜品信息，告诉我：1. 这是什么食材或菜品？2. 推荐的烹饪方式？3. 估算的热量？',
+              images: [imageUrl]
+            }
+          ]
+          
+          const aiResult = await Network.request({
+            url: '/api/ai/chat',
+            method: 'POST',
+            data: { messages: chatMessages }
+          })
+          
+          Taro.hideLoading()
+          
+          const aiResponse = (aiResult as any).data?.data?.reply || (aiResult as any).data?.reply
+          console.log('AI识别响应:', aiResponse)
+          
+          if (aiResponse) {
+            addMessage('assistant', aiResponse)
+          } else {
+            addMessage('assistant', '抱歉，无法识别图片内容，请手动输入食材信息。')
+          }
+        } catch (error) {
+          Taro.hideLoading()
+          console.error('图片识别失败', error)
+          addMessage('assistant', '图片识别失败，请手动输入食材信息。')
+        }
       }
     })
-  }
-
-  // 点击按钮后AI识别补充说明图片
-  const recognizeSupplementImages = async () => {
-    if (supplementImages.length === 0) {
-      Taro.showToast({ title: '请先上传图片', icon: 'none' })
-      return
-    }
-
-    try {
-      // 上传所有图片
-      const uploadedUrls: string[] = []
-      Taro.showLoading({ title: '上传图片中...' })
-      
-      for (const imagePath of supplementImages) {
-        const uploadResult = await Network.uploadFile({
-          url: '/api/upload',
-          filePath: imagePath,
-          name: 'file'
-        })
-        const imageUrl = (uploadResult as any).data?.data?.url || (uploadResult as any).data?.url
-        if (imageUrl) {
-          uploadedUrls.push(imageUrl)
-        }
-      }
-
-      if (uploadedUrls.length === 0) {
-        Taro.hideLoading()
-        Taro.showToast({ title: '图片上传失败', icon: 'none' })
-        return
-      }
-
-      // 显示用户上传的图片消息
-      addMessage('user', `📸 [上传了${uploadedUrls.length}张图片]`)
-      
-      // 调用AI识别图片
-      Taro.showLoading({ title: 'AI识别中...' })
-      
-      const chatMessages = [
-        {
-          role: 'user' as const,
-          content: '请识别这些图片中的食材和菜品信息，告诉我：1. 这是什么食材或菜品？2. 推荐的烹饪方式？3. 估算的热量？',
-          images: uploadedUrls
-        }
-      ]
-      
-      const aiResult = await Network.request({
-        url: '/api/ai/chat',
-        method: 'POST',
-        data: { messages: chatMessages }
-      })
-      
-      Taro.hideLoading()
-      
-      const aiResponse = (aiResult as any).data?.data?.reply || (aiResult as any).data?.reply
-      console.log('AI识别响应:', aiResponse)
-      
-      if (aiResponse) {
-        addMessage('assistant', aiResponse)
-      } else {
-        addMessage('assistant', '抱歉，无法识别图片内容，请手动输入食材信息。')
-      }
-    } catch (error) {
-      Taro.hideLoading()
-      console.error('图片识别失败', error)
-      addMessage('assistant', '图片识别失败，请手动输入食材信息。')
-    }
   }
 
   const removeSupplementImage = (index: number) => {
@@ -523,33 +511,23 @@ const AddDishPage: FC = () => {
           
           {/* 补充说明图片预览（用于AI识别） */}
           {supplementImages.length > 0 && (
-            <View className="mb-3">
-              <View className="flex flex-row gap-2 flex-wrap mb-2">
-                {supplementImages.map((img, index) => (
-                  <View key={index} className="relative w-16 h-16">
-                    <Image className="w-full h-full rounded-lg" src={img} mode="aspectFill" />
-                    <View
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center"
-                      onClick={() => removeSupplementImage(index)}
-                    >
-                      <X size={10} color="#fff" />
-                    </View>
+            <View className="flex flex-row gap-2 mb-3 flex-wrap">
+              {supplementImages.map((img, index) => (
+                <View key={index} className="relative w-16 h-16">
+                  <Image className="w-full h-full rounded-lg" src={img} mode="aspectFill" />
+                  <View
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center"
+                    onClick={() => removeSupplementImage(index)}
+                  >
+                    <X size={10} color="#fff" />
                   </View>
-                ))}
-                <View
-                  className="w-16 h-16 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center"
-                  onClick={() => setShowSupplementImagePicker(true)}
-                >
-                  <Plus size={16} color="#9CA3AF" />
                 </View>
-              </View>
-              {/* 识别图片按钮 */}
+              ))}
               <View
-                className="bg-blue-500 rounded-lg py-2 flex flex-row items-center justify-center"
-                onClick={recognizeSupplementImages}
+                className="w-16 h-16 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center"
+                onClick={() => setShowSupplementImagePicker(true)}
               >
-                <Sparkles size={14} color="#fff" />
-                <Text className="text-white text-sm ml-1">点击识别图片</Text>
+                <Plus size={16} color="#9CA3AF" />
               </View>
             </View>
           )}
