@@ -131,7 +131,14 @@ const HomePage: FC = () => {
         })
         
         console.log('上传结果:', result)
-        const imageUrl = (result as any).data?.data?.url
+        
+        // Taro.uploadFile 返回的 data 是字符串，需要解析
+        const responseData = typeof (result as any).data === 'string' 
+          ? JSON.parse((result as any).data) 
+          : (result as any).data
+        
+        console.log('解析后的响应:', responseData)
+        const imageUrl = responseData?.data?.url
         
         if (imageUrl) {
           urls.push(imageUrl)

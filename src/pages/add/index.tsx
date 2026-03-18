@@ -139,12 +139,17 @@ const AddDishPage: FC = () => {
         try {
           // 上传图片到服务器
           const uploadResult = await Network.uploadFile({
-            url: '/api/upload',
+            url: '/api/upload/image',
             filePath: imagePath,
             name: 'file'
           })
           
-          const imageUrl = (uploadResult as any).data?.data?.url || (uploadResult as any).data?.url
+          // Taro.uploadFile 返回的 data 是字符串，需要解析
+          const responseData = typeof (uploadResult as any).data === 'string'
+            ? JSON.parse((uploadResult as any).data)
+            : (uploadResult as any).data
+          
+          const imageUrl = responseData?.data?.url
           console.log('图片上传成功:', imageUrl)
           
           if (!imageUrl) {
