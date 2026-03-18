@@ -35,8 +35,13 @@ export class OrderController {
       }
       quantity: number
     }>
+    user?: {
+      id: string
+      nickname: string
+      avatarUrl: string
+    }
   }) {
-    const order = await this.orderService.create(body.items)
+    const order = await this.orderService.create(body.items, body.user)
     return {
       code: 200,
       msg: 'success',

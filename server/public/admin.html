@@ -13,6 +13,12 @@
     .step-number { width: 24px; height: 24px; background: #FF6B35; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 12px; flex-shrink: 0; }
     .image-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-right: 8px; }
     .modal-body { max-height: 70vh; overflow-y: auto; }
+    .tab-active { border-bottom: 2px solid #F97316; color: #F97316; font-weight: 600; }
+    .role-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+    .role-head_chef { background: #FEF3C7; color: #D97706; }
+    .role-sous_chef { background: #DBEAFE; color: #2563EB; }
+    .role-order_clerk { background: #D1FAE5; color: #059669; }
+    .role-guest { background: #F3F4F6; color: #6B7280; }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -25,18 +31,32 @@
           <h1 class="text-xl font-bold text-gray-800">天霸家厨房 - 管理后台</h1>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-500">菜品总数: <span id="total-count" class="font-semibold text-orange-500">0</span></span>
-          <button onclick="openAddModal()" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition flex items-center gap-2">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            添加菜品
-          </button>
+          <span id="stats-info" class="text-sm text-gray-500"></span>
         </div>
       </div>
     </header>
 
-    <!-- 筛选栏 -->
-    <div class="max-w-7xl mx-auto px-4 py-4">
-      <div class="bg-white rounded-xl p-4 shadow-sm flex flex-wrap gap-4 items-center">
+    <!-- 标签页导航 -->
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4">
+        <div class="flex gap-8">
+          <button onclick="switchTab('dishes')" id="tab-dishes" class="py-3 px-1 text-sm tab-active">
+            🍽️ 菜品管理
+          </button>
+          <button onclick="switchTab('users')" id="tab-users" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
+            👥 用户管理
+          </button>
+          <button onclick="switchTab('orders')" id="tab-orders" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
+            📋 订单管理
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 菜品管理内容 -->
+    <div id="content-dishes" class="max-w-7xl mx-auto px-4 py-4">
+      <!-- 筛选栏 -->
+      <div class="bg-white rounded-xl p-4 shadow-sm flex flex-wrap gap-4 items-center mb-4">
         <div class="flex items-center gap-2">
           <label class="text-sm text-gray-600">分类:</label>
           <select id="filter-category" onchange="loadDishes()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
@@ -69,12 +89,14 @@
         <div class="flex items-center gap-2 flex-1">
           <input type="text" id="search-name" placeholder="搜索菜品名称..." class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500" onkeyup="if(event.keyCode===13)loadDishes()">
           <button onclick="loadDishes()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">搜索</button>
+          <button onclick="openAddModal()" class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition flex items-center gap-2">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            添加菜品
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- 菜品列表 -->
-    <div class="max-w-7xl mx-auto px-4 pb-8">
+      <!-- 菜品列表 -->
       <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-200">
@@ -98,12 +120,112 @@
       </div>
     </div>
 
-    <!-- 添加/编辑弹窗 -->
+    <!-- 用户管理内容 -->
+    <div id="content-users" class="max-w-7xl mx-auto px-4 py-4 hidden">
+      <!-- 用户统计 -->
+      <div class="grid grid-cols-4 gap-4 mb-4">
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-xl">👨‍🍳</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-head_chef">0</div>
+              <div class="text-sm text-gray-500">厨师长</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-xl">🧑‍🍳</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-sous_chef">0</div>
+              <div class="text-sm text-gray-500">领班</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-xl">📝</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-order_clerk">0</div>
+              <div class="text-sm text-gray-500">下单员</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">👤</div>
+            <div>
+              <div class="text-2xl font-bold text-gray-800" id="count-guest">0</div>
+              <div class="text-sm text-gray-500">客人</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用户列表 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">头像</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">昵称</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">微信ID</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">角色</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">权限</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">注册时间</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 订单管理内容 -->
+    <div id="content-orders" class="max-w-7xl mx-auto px-4 py-4 hidden">
+      <!-- 订单筛选 -->
+      <div class="bg-white rounded-xl p-4 shadow-sm mb-4 flex gap-4">
+        <select id="filter-order-status" onchange="loadOrders()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <option value="">全部状态</option>
+          <option value="pending">待确认</option>
+          <option value="confirmed">已确认</option>
+        </select>
+        <button onclick="loadOrders()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">刷新</button>
+      </div>
+
+      <!-- 订单列表 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">订单ID</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">下单用户</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">菜品</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">总热量</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">状态</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">下单时间</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">操作</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-400">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 添加/编辑菜品弹窗 -->
     <div id="dish-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
       <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <h2 id="modal-title" class="text-lg font-semibold text-gray-800">添加菜品</h2>
-          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+          <button onclick="closeDishModal()" class="text-gray-400 hover:text-gray-600">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -207,8 +329,55 @@
           </form>
         </div>
         <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-          <button onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+          <button onclick="closeDishModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
           <button onclick="saveDish()" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 修改用户角色弹窗 -->
+    <div id="user-role-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+      <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">修改用户角色</h3>
+        <input type="hidden" id="edit-user-id">
+        <div class="mb-4">
+          <div class="flex items-center gap-3 mb-4">
+            <img id="edit-user-avatar" src="" class="w-12 h-12 rounded-full">
+            <div>
+              <div id="edit-user-name" class="font-medium text-gray-800"></div>
+              <div id="edit-user-wechat" class="text-sm text-gray-500"></div>
+            </div>
+          </div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">选择角色</label>
+          <select id="edit-user-role" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="head_chef">👨‍🍳 厨师长 - 全部权限</option>
+            <option value="sous_chef">🧑‍🍳 领班 - 全部权限</option>
+            <option value="order_clerk">📝 下单员 - 下单、修改订单、上传菜品</option>
+            <option value="guest">👤 客人 - 无权限</option>
+          </select>
+        </div>
+        <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div class="text-sm font-medium text-gray-700 mb-2">权限说明：</div>
+          <div id="role-permissions" class="text-xs text-gray-600"></div>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button onclick="closeUserRoleModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+          <button onclick="saveUserRole()" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 订单详情弹窗 -->
+    <div id="order-detail-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+      <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-gray-800">订单详情</h3>
+          <button onclick="closeOrderDetailModal()" class="text-gray-400 hover:text-gray-600">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto max-h-[70vh]">
+          <div id="order-detail-content"></div>
         </div>
       </div>
     </div>
@@ -229,7 +398,10 @@
   <script>
     const API_BASE = window.location.origin + '/api'
     let dishes = []
+    let users = []
+    let orders = []
     let deleteDishId = null
+    let currentTab = 'dishes'
 
     // 分类和菜系映射
     const categoryMap = {
@@ -239,6 +411,46 @@
     const cuisineMap = {
       'tianba': '天霸家自制', 'jiangzhe': '江浙菜', 'wenzhou': '温州菜', 'yue': '粤菜',
       'dongbei': '东北菜', 'hunan': '湖南菜', 'yunnan': '云南菜', 'other': '其它'
+    }
+    const roleMap = {
+      'head_chef': '厨师长',
+      'sous_chef': '领班',
+      'order_clerk': '下单员',
+      'guest': '客人'
+    }
+    const permissionMap = {
+      'place_order': '下单',
+      'modify_order': '修改订单',
+      'confirm_order': '确认订单',
+      'upload_dish': '上传菜品',
+      'manage_users': '管理用户'
+    }
+    const rolePermissions = {
+      'head_chef': ['下单', '修改订单', '确认订单', '上传菜品', '管理用户'],
+      'sous_chef': ['下单', '修改订单', '确认订单', '上传菜品', '管理用户'],
+      'order_clerk': ['下单', '修改订单', '上传菜品'],
+      'guest': []
+    }
+
+    // 切换标签页
+    function switchTab(tab) {
+      currentTab = tab
+      // 更新标签样式
+      document.querySelectorAll('[id^="tab-"]').forEach(el => {
+        el.classList.remove('tab-active')
+        el.classList.add('text-gray-500')
+      })
+      document.getElementById(`tab-${tab}`).classList.add('tab-active')
+      document.getElementById(`tab-${tab}`).classList.remove('text-gray-500')
+      
+      // 切换内容
+      document.querySelectorAll('[id^="content-"]').forEach(el => el.classList.add('hidden'))
+      document.getElementById(`content-${tab}`).classList.remove('hidden')
+      
+      // 加载数据
+      if (tab === 'dishes') loadDishes()
+      else if (tab === 'users') loadUsers()
+      else if (tab === 'orders') loadOrders()
     }
 
     // 加载菜品列表
@@ -257,10 +469,41 @@
         const result = await response.json()
         dishes = result.data || []
         renderDishes()
-        document.getElementById('total-count').textContent = dishes.length
+        updateStats()
       } catch (error) {
         console.error('加载失败:', error)
         document.getElementById('dishes-tbody').innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-red-400">加载失败，请检查后端服务</td></tr>'
+      }
+    }
+
+    // 加载用户列表
+    async function loadUsers() {
+      try {
+        const response = await fetch(`${API_BASE}/users`)
+        const result = await response.json()
+        users = result.data || []
+        renderUsers()
+        updateUserCounts()
+      } catch (error) {
+        console.error('加载用户失败:', error)
+        document.getElementById('users-tbody').innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-red-400">加载失败</td></tr>'
+      }
+    }
+
+    // 加载订单列表
+    async function loadOrders() {
+      const status = document.getElementById('filter-order-status').value
+      const params = new URLSearchParams()
+      if (status) params.append('status', status)
+
+      try {
+        const response = await fetch(`${API_BASE}/orders?${params}`)
+        const result = await response.json()
+        orders = result.data || []
+        renderOrders()
+      } catch (error) {
+        console.error('加载订单失败:', error)
+        document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-red-400">加载失败</td></tr>'
       }
     }
 
@@ -301,7 +544,95 @@
       `).join('')
     }
 
-    // 打开添加弹窗
+    // 渲染用户列表
+    function renderUsers() {
+      const tbody = document.getElementById('users-tbody')
+      
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无用户数据</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = users.map(user => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <img src="${user.avatarUrl}" class="w-10 h-10 rounded-full" onerror="this.src='https://via.placeholder.com/40?text=User'">
+          </td>
+          <td class="px-4 py-3 font-medium text-gray-800">${user.nickname}</td>
+          <td class="px-4 py-3 text-sm text-gray-500">${user.wechatId}</td>
+          <td class="px-4 py-3">
+            <span class="role-badge role-${user.role}">${roleMap[user.role] || user.role}</span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-1">
+              ${rolePermissions[user.role].map(p => `<span class="text-xs bg-gray-100 px-2 py-0.5 rounded">${p}</span>`).join('')}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-sm text-gray-500">${new Date(user.createdAt).toLocaleString('zh-CN')}</td>
+          <td class="px-4 py-3">
+            <button onclick="openUserRoleModal('${user.id}')" class="text-orange-500 hover:text-orange-700 text-sm">修改角色</button>
+          </td>
+        </tr>
+      `).join('')
+    }
+
+    // 渲染订单列表
+    function renderOrders() {
+      const tbody = document.getElementById('orders-tbody')
+      
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无订单数据</td></tr>'
+        return
+      }
+
+      tbody.innerHTML = orders.map(order => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="px-4 py-3 font-mono text-sm text-gray-600">${order.id.slice(0, 8)}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <img src="${order.user?.avatarUrl || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-full">
+              <span class="text-sm text-gray-800">${order.user?.nickname || '未知用户'}</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-1">
+              ${order.items.slice(0, 3).map(item => `
+                <img src="${item.dish?.images?.[0] || 'https://via.placeholder.com/32'}" class="w-8 h-8 rounded" title="${item.dish?.name}">
+              `).join('')}
+              ${order.items.length > 3 ? `<span class="text-xs text-gray-400">+${order.items.length - 3}</span>` : ''}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-sm text-orange-500 font-medium">${order.totalCalories} 千卡</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded text-xs ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">
+              ${order.status === 'pending' ? '待确认' : '已确认'}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-sm text-gray-500">${new Date(order.createdAt).toLocaleString('zh-CN')}</td>
+          <td class="px-4 py-3">
+            <button onclick="viewOrderDetail('${order.id}')" class="text-blue-500 hover:text-blue-700 text-sm">查看</button>
+          </td>
+        </tr>
+      `).join('')
+    }
+
+    // 更新统计信息
+    function updateStats() {
+      document.getElementById('stats-info').innerHTML = `菜品总数: <span class="font-semibold text-orange-500">${dishes.length}</span>`
+    }
+
+    // 更新用户统计
+    function updateUserCounts() {
+      const counts = { head_chef: 0, sous_chef: 0, order_clerk: 0, guest: 0 }
+      users.forEach(u => counts[u.role] = (counts[u.role] || 0) + 1)
+      
+      Object.keys(counts).forEach(role => {
+        const el = document.getElementById(`count-${role}`)
+        if (el) el.textContent = counts[role]
+      })
+    }
+
+    // 打开添加菜品弹窗
     function openAddModal() {
       document.getElementById('modal-title').textContent = '添加菜品'
       document.getElementById('dish-form').reset()
@@ -379,7 +710,7 @@
         
         const result = await response.json()
         if (result.code === 200) {
-          closeModal()
+          closeDishModal()
           loadDishes()
           alert(id ? '修改成功' : '添加成功')
         } else {
@@ -389,6 +720,107 @@
         console.error('保存失败:', error)
         alert('保存失败，请检查后端服务')
       }
+    }
+
+    // 打开修改用户角色弹窗
+    function openUserRoleModal(userId) {
+      const user = users.find(u => u.id === userId)
+      if (!user) return
+
+      document.getElementById('edit-user-id').value = user.id
+      document.getElementById('edit-user-avatar').src = user.avatarUrl
+      document.getElementById('edit-user-name').textContent = user.nickname
+      document.getElementById('edit-user-wechat').textContent = user.wechatId
+      document.getElementById('edit-user-role').value = user.role
+      
+      updateRolePermissions(user.role)
+      document.getElementById('user-role-modal').classList.remove('hidden')
+    }
+
+    // 更新权限说明
+    function updateRolePermissions(role) {
+      const permissions = rolePermissions[role] || []
+      document.getElementById('role-permissions').textContent = permissions.length > 0 
+        ? `拥有权限：${permissions.join('、')}` 
+        : '无任何权限'
+    }
+
+    // 保存用户角色
+    async function saveUserRole() {
+      const userId = document.getElementById('edit-user-id').value
+      const role = document.getElementById('edit-user-role').value
+
+      try {
+        const response = await fetch(`${API_BASE}/users/${userId}/role`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role })
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          closeUserRoleModal()
+          loadUsers()
+          alert('角色修改成功')
+        } else {
+          alert('修改失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('修改失败:', error)
+        alert('修改失败')
+      }
+    }
+
+    // 查看订单详情
+    function viewOrderDetail(orderId) {
+      const order = orders.find(o => o.id === orderId)
+      if (!order) return
+
+      const content = `
+        <div class="mb-4">
+          <div class="text-sm text-gray-500 mb-2">订单ID: ${order.id}</div>
+          <div class="flex items-center gap-2 mb-2">
+            <img src="${order.user?.avatarUrl || 'https://via.placeholder.com/32'}" class="w-8 h-8 rounded-full">
+            <span class="font-medium">${order.user?.nickname || '未知用户'}</span>
+          </div>
+          <div class="text-sm text-gray-500">下单时间: ${new Date(order.createdAt).toLocaleString('zh-CN')}</div>
+        </div>
+        <div class="mb-4">
+          <h4 class="font-medium text-gray-800 mb-2">菜品列表</h4>
+          ${order.items.map(item => `
+            <div class="flex items-center gap-3 py-2 border-b border-gray-100">
+              <img src="${item.dish?.images?.[0] || 'https://via.placeholder.com/48'}" class="w-12 h-12 rounded-lg">
+              <div class="flex-1">
+                <div class="font-medium">${item.dish?.name}</div>
+                <div class="text-sm text-gray-500">数量: ${item.quantity} | ${item.dish?.calories || 0} 千卡</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        ${order.mergedIngredients?.length ? `
+          <div class="mb-4">
+            <h4 class="font-medium text-gray-800 mb-2">🥬 所需食材</h4>
+            <div class="flex flex-wrap gap-2">
+              ${order.mergedIngredients.map(ing => `<span class="px-3 py-1 bg-green-50 text-green-700 rounded-lg text-sm">${ing}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${order.mergedSeasoning?.length ? `
+          <div class="mb-4">
+            <h4 class="font-medium text-gray-800 mb-2">🧂 所需配料</h4>
+            <div class="flex flex-wrap gap-2">
+              ${order.mergedSeasoning.map(s => `<span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg text-sm">${s}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+        <div class="flex items-center justify-center py-3 bg-orange-50 rounded-xl">
+          <span class="text-lg font-bold text-orange-500">${order.totalCalories}</span>
+          <span class="text-sm text-orange-500 ml-1">千卡</span>
+        </div>
+      `
+
+      document.getElementById('order-detail-content').innerHTML = content
+      document.getElementById('order-detail-modal').classList.remove('hidden')
     }
 
     // 删除相关
@@ -423,8 +855,16 @@
     }
 
     // 关闭弹窗
-    function closeModal() {
+    function closeDishModal() {
       document.getElementById('dish-modal').classList.add('hidden')
+    }
+
+    function closeUserRoleModal() {
+      document.getElementById('user-role-modal').classList.add('hidden')
+    }
+
+    function closeOrderDetailModal() {
+      document.getElementById('order-detail-modal').classList.add('hidden')
     }
 
     // 更新菜系字段显示
@@ -434,12 +874,19 @@
       cuisineField.style.display = category === 'chinese' ? 'block' : 'none'
     }
 
-    // 监听分类变化
+    // 监听分类变化和角色变化
     document.getElementById('dish-category').addEventListener('change', updateCuisineField)
+    document.getElementById('edit-user-role').addEventListener('change', (e) => updateRolePermissions(e.target.value))
 
     // 点击弹窗外部关闭
     document.getElementById('dish-modal').addEventListener('click', function(e) {
-      if (e.target === this) closeModal()
+      if (e.target === this) closeDishModal()
+    })
+    document.getElementById('user-role-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeUserRoleModal()
+    })
+    document.getElementById('order-detail-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeOrderDetailModal()
     })
     document.getElementById('delete-modal').addEventListener('click', function(e) {
       if (e.target === this) closeDeleteModal()

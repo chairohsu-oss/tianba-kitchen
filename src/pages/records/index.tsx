@@ -1,9 +1,17 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Check, Clock, Flame, Calendar, ChefHat, X } from 'lucide-react-taro'
+import { Check, Clock, Flame, Calendar, ChefHat, X, User } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
+
+// 用户信息
+interface UserInfo {
+  id: string
+  nickname: string
+  avatarUrl: string
+  role: string
+}
 
 // 菜品完整信息
 interface DishInfo {
@@ -28,6 +36,8 @@ interface Order {
   status: 'pending' | 'confirmed'
   mergedIngredients?: string[]
   mergedSeasoning?: string[]
+  userId?: string
+  user?: UserInfo
 }
 
 // 美味记录类型
@@ -38,7 +48,23 @@ interface DeliciousRecord {
   totalCalories: number
 }
 
+// 角色映射
+const roleMap: Record<string, string> = {
+  'head_chef': '厨师长',
+  'sous_chef': '领班',
+  'order_clerk': '下单员',
+  'guest': '客人',
+}
+
+const roleColors: Record<string, string> = {
+  'head_chef': 'bg-amber-100 text-amber-700',
+  'sous_chef': 'bg-blue-100 text-blue-700',
+  'order_clerk': 'bg-green-100 text-green-700',
+  'guest': 'bg-gray-100 text-gray-700',
+}
+
 const RecordsPage: FC = () => {
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null)
   const [pendingOrders, setPendingOrders] = useState<Order[]>([])
   const [records, setRecords] = useState<DeliciousRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,6 +77,15 @@ const RecordsPage: FC = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
+      // 获取当前用户信息
+      const userResult = await Network.request({
+        url: '/api/users/me'
+      })
+      const userData = (userResult as any).data?.data
+      if (userData) {
+        setCurrentUser(userData)
+      }
+
       // 获取待确认订单
       const ordersResult = await Network.request({
         url: '/api/orders',
@@ -126,6 +161,47 @@ const RecordsPage: FC = () => {
 
   return (
     <View className="flex flex-col bg-gray-50 min-h-screen">
+      {/* 用户信息栏 */}
+      <View 
+        className="bg-white px-4 flex flex-row items-center justify-between"
+        style={{ height: '100px' }}
+      >
+        {currentUser ? (
+          <>
+            <View className="flex flex-row items-center gap-3">
+              <Image
+                className="w-14 h-14 rounded-full"
+                src={currentUser.avatarUrl}
+                mode="aspectFill"
+              />
+              <View className="flex flex-col">
+                <Text className="text-base font-semibold text-gray-800">{currentUser.nickname}</Text>
+                <View className={`self-start px-2 py-0.5 rounded-full mt-1 ${roleColors[currentUser.role] || 'bg-gray-100 text-gray-700'}`}>
+                  <Text className="text-xs">{roleMap[currentUser.role] || currentUser.role}</Text>
+                </View>
+              </View>
+            </View>
+            <View className="flex flex-col items-end">
+              <View className="flex flex-row items-center gap-1">
+                <Flame size={16} color="#F97316" />
+                <Text className="text-sm text-gray-600">今日热量</Text>
+              </View>
+              <Text className="text-2xl font-bold text-orange-500 mt-1">
+                {records.reduce((sum, r) => sum + r.totalCalories, 0)}
+              </Text>
+              <Text className="text-xs text-gray-400">千卡</Text>
+            </View>
+          </>
+        ) : (
+          <View className="flex flex-row items-center gap-3">
+            <View className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+              <User size={24} color="#9CA3AF" />
+            </View>
+            <Text className="text-gray-400">加载用户信息...</Text>
+          </View>
+        )}
+      </View>
+
       {/* 顶部待确认订单区域 */}
       <View className="bg-white mb-2">
         <View className="px-4 py-3 border-b border-gray-100">
@@ -153,9 +229,32 @@ const RecordsPage: FC = () => {
                   key={order.id}
                   className="flex-shrink-0 w-72 bg-orange-50 rounded-xl p-3"
                 >
-                  {/* 订单时间 */}
+                  {/* 下单用户信息和时间 */}
                   <View className="flex flex-row items-center justify-between mb-2">
+                    <View className="flex flex-row items-center gap-2">
+                      {order.user ? (
+                        <>
+                          <Image
+                            className="w-6 h-6 rounded-full"
+                            src={order.user.avatarUrl}
+                            mode="aspectFill"
+                          />
+                          <Text className="text-xs text-gray-600">{order.user.nickname}</Text>
+                        </>
+                      ) : (
+                        <>
+                          <View className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                            <User size={12} color="#9CA3AF" />
+                          </View>
+                          <Text className="text-xs text-gray-400">未知用户</Text>
+                        </>
+                      )}
+                    </View>
                     <Text className="text-xs text-gray-500">{formatTime(order.createdAt)}</Text>
+                  </View>
+
+                  {/* 热量显示 */}
+                  <View className="flex flex-row items-center justify-end mb-2">
                     <View className="flex flex-row items-center gap-1">
                       <Flame size={12} color="#F97316" />
                       <Text className="text-xs text-orange-500 font-medium">{order.totalCalories} 千卡</Text>
@@ -299,6 +398,21 @@ const RecordsPage: FC = () => {
             </View>
 
             <ScrollView scrollY className="p-4" style={{ maxHeight: '60vh' }}>
+              {/* 下单用户信息 */}
+              {selectedOrder.user && (
+                <View className="mb-4 flex flex-row items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <Image
+                    className="w-10 h-10 rounded-full"
+                    src={selectedOrder.user.avatarUrl}
+                    mode="aspectFill"
+                  />
+                  <View>
+                    <Text className="text-sm font-medium text-gray-800">{selectedOrder.user.nickname}</Text>
+                    <Text className="text-xs text-gray-500">下单时间: {formatTime(selectedOrder.createdAt)}</Text>
+                  </View>
+                </View>
+              )}
+
               {/* 菜品列表 */}
               <View className="mb-4">
                 <Text className="text-sm font-medium text-gray-800 mb-2">菜品清单</Text>

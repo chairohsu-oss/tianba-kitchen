@@ -6,9 +6,10 @@ import { AiModule } from './modules/ai/ai.module'
 import { VoiceModule } from './modules/voice/voice.module'
 import { UploadModule } from './modules/upload/upload.module'
 import { OrderModule } from './modules/order/order.module'
+import { UserModule } from './modules/user/user.module'
 
 @Module({
-  imports: [DishModule, AiModule, VoiceModule, UploadModule, OrderModule],
+  imports: [DishModule, AiModule, VoiceModule, UploadModule, OrderModule, UserModule],
   controllers: [AppController],
   providers: [AppService],
 })

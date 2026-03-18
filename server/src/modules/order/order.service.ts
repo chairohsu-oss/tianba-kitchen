@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common'
 
+export interface UserInfo {
+  id: string
+  nickname: string
+  avatarUrl: string
+}
+
 export interface DishInfo {
   id: string
   name: string
@@ -23,6 +29,8 @@ export interface Order {
   status: 'pending' | 'confirmed'
   mergedIngredients?: string[]
   mergedSeasoning?: string[]
+  userId?: string
+  user?: UserInfo
 }
 
 export interface DeliciousRecord {
@@ -104,7 +112,7 @@ export class OrderService {
   /**
    * 创建订单
    */
-  async create(items: OrderItem[]): Promise<Order> {
+  async create(items: OrderItem[], user?: UserInfo): Promise<Order> {
     const totalCalories = items.reduce((sum, item) => {
       return sum + item.dish.calories * item.quantity
     }, 0)
@@ -117,6 +125,8 @@ export class OrderService {
       status: 'pending',
       mergedIngredients: this.mergeIngredients(items),
       mergedSeasoning: this.mergeSeasoning(items),
+      userId: user?.id,
+      user: user,
     }
 
     orders.set(order.id, order)

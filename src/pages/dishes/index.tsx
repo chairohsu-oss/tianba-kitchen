@@ -181,6 +181,15 @@ const DishesPage: FC = () => {
       success: async (res) => {
         if (res.confirm) {
           try {
+            // 获取当前用户信息
+            let user: { id: string; nickname: string; avatarUrl: string } | null = null
+            try {
+              const userResult = await Network.request({ url: '/api/users/me' })
+              user = (userResult as any).data?.data
+            } catch (e) {
+              console.log('获取用户信息失败，使用默认用户')
+            }
+
             await Network.request({
               url: '/api/orders',
               method: 'POST',
@@ -197,6 +206,11 @@ const DishesPage: FC = () => {
                   },
                   quantity: item.quantity,
                 })),
+                user: user ? {
+                  id: user.id,
+                  nickname: user.nickname,
+                  avatarUrl: user.avatarUrl,
+                } : undefined,
               },
             })
             Taro.showToast({ title: '下单成功！', icon: 'success' })
