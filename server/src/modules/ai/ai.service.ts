@@ -72,10 +72,8 @@ export class AiService implements OnModuleInit {
       // 构建客户端实例
       const client = customHeaders ? new LLMClient(new Config(), customHeaders) : this.llmClient
       
-      // 检查是否有图片
-      const hasImages = messages.some(m => m.images && m.images.length > 0)
-      
       // 构建消息列表
+      let hasValidImages = false
       const formattedMessages: Array<{
         role: 'system' | 'user' | 'assistant'
         content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail?: 'high' | 'low' } }>
@@ -84,14 +82,28 @@ export class AiService implements OnModuleInit {
       ]
       
       for (const msg of messages) {
-        if (msg.images && msg.images.length > 0) {
+        // 过滤图片URL，只保留有效的 http/https URL 或 base64 格式
+        const validImages = msg.images?.filter(img => {
+          if (img.startsWith('http://') || img.startsWith('https://')) {
+            return true
+          }
+          // 支持 base64 格式（data:image/xxx;base64,...）
+          if (img.startsWith('data:image/')) {
+            return true
+          }
+          console.log('过滤掉无效图片URL:', img.substring(0, 50))
+          return false
+        }) || []
+        
+        if (validImages.length > 0) {
+          hasValidImages = true
           // 多模态消息（包含图片）
           const content: Array<any> = [
             { type: 'text', text: msg.content || '请看这张图片' }
           ]
           
           // 添加图片
-          for (const imageUrl of msg.images) {
+          for (const imageUrl of validImages) {
             content.push({
               type: 'image_url',
               image_url: {
@@ -114,10 +126,10 @@ export class AiService implements OnModuleInit {
         }
       }
 
-      console.log('发送消息到LLM，消息数:', formattedMessages.length, '包含图片:', hasImages)
+      console.log('发送消息到LLM，消息数:', formattedMessages.length, '包含有效图片:', hasValidImages)
 
       // 选择模型：如果有图片使用vision模型，否则使用默认模型
-      const model = hasImages ? 'doubao-seed-1-6-vision-250815' : 'doubao-seed-1-8-251228'
+      const model = hasValidImages ? 'doubao-seed-1-6-vision-250815' : 'doubao-seed-1-8-251228'
       console.log('使用模型:', model)
 
       // 调用LLM

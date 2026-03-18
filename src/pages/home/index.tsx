@@ -193,11 +193,20 @@ const HomePage: FC = () => {
     setIsLoading(true)
     try {
       // 构建消息历史（最近10条）
-      const recentMessages = messages.slice(-10).map(m => ({
-        role: m.role,
-        content: m.content,
-        images: m.images
-      }))
+      // 过滤掉本地临时路径，只保留有效的 http/https URL
+      const recentMessages = messages.slice(-10).map(m => {
+        // 过滤图片URL，只保留 http/https 开头的有效URL
+        const validImages = m.images?.filter(img => 
+          img.startsWith('http://') || img.startsWith('https://')
+        )
+        
+        return {
+          role: m.role,
+          content: m.content,
+          // 只有存在有效图片时才添加 images 字段
+          ...(validImages && validImages.length > 0 ? { images: validImages } : {})
+        }
+      })
       
       console.log('发送对话请求，历史消息数:', recentMessages.length, '图片URLs:', imageUrls)
       
@@ -513,7 +522,7 @@ const HomePage: FC = () => {
             <View key={msg.id} id={`msg-${msg.id}`} className="mb-4 mt-2">
               {msg.role === 'user' ? (
                 <View className="flex flex-row justify-end items-start gap-2">
-                  <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
+                  <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" style={{ maxWidth: '75%' }}>
                     {/* 用户图片 */}
                     {msg.images && msg.images.length > 0 && (
                       <View className="flex flex-row flex-wrap gap-2 mb-2">
@@ -531,7 +540,7 @@ const HomePage: FC = () => {
                       <Text className="text-white text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
                     )}
                   </View>
-                  <View className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <View className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <User size={16} color="#6B7280" />
                   </View>
                 </View>
