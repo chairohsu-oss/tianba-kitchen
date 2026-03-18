@@ -523,8 +523,11 @@ const HomePage: FC = () => {
           {messages.map(msg => (
             <View key={msg.id} id={`msg-${msg.id}`} className="mb-4 mt-2">
               {msg.role === 'user' ? (
-                <View className="flex flex-row justify-end items-start" style={{ gap: '8px' }}>
-                  <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" style={{ maxWidth: 'calc(100% - 48px)' }}>
+                <View className="flex flex-row justify-end items-start" style={{ gap: '8px', width: '100%' }}>
+                  <View 
+                    className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" 
+                    style={{ flexShrink: 1, maxWidth: '85%' }}
+                  >
                     {/* 用户图片 */}
                     {msg.images && msg.images.length > 0 && (
                       <View className="flex flex-row flex-wrap gap-2 mb-2">
