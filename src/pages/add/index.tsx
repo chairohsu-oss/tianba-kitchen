@@ -44,6 +44,10 @@ const AddDishPage: FC = () => {
   const [images, setImages] = useState<string[]>([])
   const [showActionSheet, setShowActionSheet] = useState(false)
   
+  // 补充说明图片（用于AI识别）
+  const [supplementImages, setSupplementImages] = useState<string[]>([])
+  const [showSupplementImagePicker, setShowSupplementImagePicker] = useState(false)
+  
   // B模块：分类设置
   const [categoryIndex, setCategoryIndex] = useState(0)
   const [cuisineIndex, setCuisineIndex] = useState(0)
@@ -99,7 +103,7 @@ const AddDishPage: FC = () => {
     }
   }, [isWeapp])
 
-  // A模块：图片选择
+  // A模块：图片选择（菜品照片）
   const chooseImage = (sourceType: 'album' | 'camera') => {
     if (images.length >= 3) {
       Taro.showToast({ title: '最多上传3张图片', icon: 'none' })
@@ -117,6 +121,62 @@ const AddDishPage: FC = () => {
 
   const removeImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index))
+  }
+
+  // D模块：补充说明图片选择（用于AI识别）
+  const chooseSupplementImage = (sourceType: 'album' | 'camera') => {
+    setShowSupplementImagePicker(false)
+    Taro.chooseImage({
+      count: 1,
+      sourceType: [sourceType],
+      success: async (res) => {
+        const imagePath = res.tempFilePaths[0]
+        
+        // 添加到补充说明图片列表
+        setSupplementImages(prev => [...prev, imagePath])
+        
+        // 显示用户上传的图片消息
+        addMessage('user', `[图片]`)
+        
+        // 上传图片并调用AI识别
+        try {
+          // 上传图片到服务器
+          const uploadResult = await Network.uploadFile({
+            url: '/api/upload',
+            filePath: imagePath,
+            name: 'file'
+          })
+          
+          const imageUrl = (uploadResult as any).data?.data?.url || (uploadResult as any).data?.url
+          console.log('图片上传成功:', imageUrl)
+          
+          // 调用AI识别图片
+          Taro.showLoading({ title: 'AI识别中...' })
+          const aiResult = await Network.request({
+            url: '/api/ai/chat',
+            method: 'POST',
+            data: {
+              message: '请识别这张图片中的食材和菜品信息',
+              imageUrl
+            }
+          })
+          Taro.hideLoading()
+          
+          const aiResponse = (aiResult as any).data?.data?.response || (aiResult as any).data?.response
+          if (aiResponse) {
+            addMessage('assistant', aiResponse)
+          }
+        } catch (error) {
+          Taro.hideLoading()
+          console.error('图片识别失败', error)
+          addMessage('assistant', '图片识别失败，请重试')
+        }
+      }
+    })
+  }
+
+  const removeSupplementImage = (index: number) => {
+    setSupplementImages(supplementImages.filter((_, i) => i !== index))
   }
 
   // D模块：补充说明对话
@@ -228,7 +288,8 @@ const AddDishPage: FC = () => {
         category: CATEGORIES[categoryIndex].id,
         cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
         userInputs,
-        images
+        supplementImages,
+        dishImages: images
       })
 
       const result = await Network.request({
@@ -239,7 +300,10 @@ const AddDishPage: FC = () => {
           category: CATEGORIES[categoryIndex].id,
           cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
           userInputs,
-          images
+          // 传递补充说明图片给AI识别
+          supplementImages,
+          // 同时传递菜品照片（如果有）
+          dishImages: images
         }
       })
 
@@ -281,6 +345,7 @@ const AddDishPage: FC = () => {
       
       // 重置表单
       setImages([])
+      setSupplementImages([])
       setDishName('')
       setTextInput('')
       setMessages([
@@ -427,6 +492,29 @@ const AddDishPage: FC = () => {
         <View className="bg-white px-4 py-4 mb-2">
           <Text className="block text-sm font-medium text-gray-800 mb-3">💬 补充说明</Text>
           
+          {/* 补充说明图片预览（用于AI识别） */}
+          {supplementImages.length > 0 && (
+            <View className="flex flex-row gap-2 mb-3 flex-wrap">
+              {supplementImages.map((img, index) => (
+                <View key={index} className="relative w-16 h-16">
+                  <Image className="w-full h-full rounded-lg" src={img} mode="aspectFill" />
+                  <View
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center"
+                    onClick={() => removeSupplementImage(index)}
+                  >
+                    <X size={10} color="#fff" />
+                  </View>
+                </View>
+              ))}
+              <View
+                className="w-16 h-16 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center"
+                onClick={() => setShowSupplementImagePicker(true)}
+              >
+                <Plus size={16} color="#9CA3AF" />
+              </View>
+            </View>
+          )}
+          
           {/* 对话框 */}
           <View className="bg-gray-50 rounded-xl p-3 mb-3" style={{ minHeight: '150px', maxHeight: '300px' }}>
             <ScrollView 
@@ -540,10 +628,10 @@ const AddDishPage: FC = () => {
       >
         {/* D模块：语音输入框 - 和首页一样 */}
         <View className="flex flex-row items-center gap-2 mb-3">
-          {/* 左侧：图片上传按钮 */}
+          {/* 左侧：图片上传按钮（用于AI识别补充说明） */}
           <View
             className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-            onClick={() => setShowActionSheet(true)}
+            onClick={() => setShowSupplementImagePicker(true)}
           >
             <ImageIcon size={18} color="#6B7280" />
           </View>
@@ -623,7 +711,7 @@ const AddDishPage: FC = () => {
         </View>
       </View>
 
-      {/* 图片选择弹窗 */}
+      {/* 图片选择弹窗（菜品照片） */}
       {showActionSheet && (
         <View className="fixed inset-0 bg-black/50 flex items-end z-50" onClick={() => setShowActionSheet(false)}>
           <View className="bg-white w-full rounded-t-2xl p-4" onClick={(e) => e.stopPropagation()}>
@@ -644,6 +732,37 @@ const AddDishPage: FC = () => {
             <View
               className="flex flex-row items-center justify-center py-4"
               onClick={() => setShowActionSheet(false)}
+            >
+              <Text className="text-base text-gray-500">取消</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 补充说明图片选择弹窗（用于AI识别） */}
+      {showSupplementImagePicker && (
+        <View className="fixed inset-0 bg-black/50 flex items-end z-50" onClick={() => setShowSupplementImagePicker(false)}>
+          <View className="bg-white w-full rounded-t-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <View className="flex flex-row items-center justify-center py-2 mb-2">
+              <Text className="text-sm text-gray-500">上传图片让AI识别食材和菜品信息</Text>
+            </View>
+            <View
+              className="flex flex-row items-center justify-center py-4 border-b border-gray-100"
+              onClick={() => chooseSupplementImage('camera')}
+            >
+              <Camera size={20} color="#6B7280" />
+              <Text className="text-base text-gray-800 ml-2">拍照</Text>
+            </View>
+            <View
+              className="flex flex-row items-center justify-center py-4 border-b border-gray-100"
+              onClick={() => chooseSupplementImage('album')}
+            >
+              <ImageIcon size={20} color="#6B7280" />
+              <Text className="text-base text-gray-800 ml-2">从相册选择</Text>
+            </View>
+            <View
+              className="flex flex-row items-center justify-center py-4"
+              onClick={() => setShowSupplementImagePicker(false)}
             >
               <Text className="text-base text-gray-500">取消</Text>
             </View>
