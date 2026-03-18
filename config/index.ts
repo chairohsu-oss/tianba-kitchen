@@ -96,7 +96,10 @@ export default defineConfig<'vite'>(async (merge, _env) => {
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
     },
     copy: {
-      patterns: [],
+      patterns: [
+        { from: 'public/manifest.json', to: 'manifest.json' },
+        { from: 'public/icons', to: 'icons' },
+      ],
       options: {},
     },
     ...(process.env.TARO_ENV === 'tt' && {
@@ -142,6 +145,44 @@ export default defineConfig<'vite'>(async (merge, _env) => {
           rem2rpx: true,
           cssEntries: [path.resolve(__dirname, '../src/app.css')],
         }),
+        // PWA 文件复制插件（仅 H5）
+        ...(process.env.TARO_ENV === 'h5'
+          ? [
+              {
+                name: 'copy-pwa-files',
+                writeBundle() {
+                  const publicDir = path.resolve(__dirname, '../public');
+                  const outDir = path.resolve(__dirname, '../dist-web');
+                  
+                  // 复制 manifest.json
+                  if (fs.existsSync(path.join(publicDir, 'manifest.json'))) {
+                    fs.copyFileSync(
+                      path.join(publicDir, 'manifest.json'),
+                      path.join(outDir, 'manifest.json')
+                    );
+                    console.log('✓ Copied manifest.json');
+                  }
+                  
+                  // 复制 icons 目录
+                  const iconsDir = path.join(publicDir, 'icons');
+                  const outIconsDir = path.join(outDir, 'icons');
+                  if (fs.existsSync(iconsDir)) {
+                    if (!fs.existsSync(outIconsDir)) {
+                      fs.mkdirSync(outIconsDir, { recursive: true });
+                    }
+                    const files = fs.readdirSync(iconsDir);
+                    files.forEach(file => {
+                      fs.copyFileSync(
+                        path.join(iconsDir, file),
+                        path.join(outIconsDir, file)
+                      );
+                    });
+                    console.log(`✓ Copied ${files.length} icon files`);
+                  }
+                },
+              },
+            ]
+          : []),
         ...(process.env.TARO_ENV === 'tt'
           ? [
               {
