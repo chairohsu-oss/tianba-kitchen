@@ -49,6 +49,14 @@ const HomePage: FC = () => {
   const scrollViewRef = useRef<string>('')
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
+  // 检查登录状态
+  useEffect(() => {
+    const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
+    if (!isLoggedIn) {
+      Taro.redirectTo({ url: '/pages/login/index' })
+    }
+  }, [])
+
   // 初始化录音管理器
   useEffect(() => {
     if (isWeapp) {

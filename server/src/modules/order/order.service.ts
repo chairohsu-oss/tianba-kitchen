@@ -242,7 +242,40 @@ export class OrderService {
       return []
     }
 
-    return data || []
+    // 为每条记录查询菜品详情
+    const result: any[] = []
+    for (const record of data || []) {
+      const dishIds: string[] = record.dish_ids || []
+      
+      // 根据 dish_ids 查询菜品信息
+      const dishes: any[] = []
+      for (const dishId of dishIds) {
+        const { data: dish } = await this.client
+          .from('dishes')
+          .select('*')
+          .eq('id', dishId)
+          .single()
+        
+        if (dish) {
+          dishes.push({
+            id: dish.id,
+            name: dish.name,
+            images: dish.images || [],
+            calories: dish.calories || 0,
+          })
+        }
+      }
+
+      result.push({
+        id: record.id,
+        date: record.date,
+        dishes,
+        totalCalories: record.total_calories,
+        createdAt: record.created_at,
+      })
+    }
+
+    return result
   }
 
   /**

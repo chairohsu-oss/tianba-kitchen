@@ -74,6 +74,13 @@ const RecordsPage: FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   useEffect(() => {
+    // 检查登录状态
+    const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
+    if (!isLoggedIn) {
+      Taro.redirectTo({ url: '/pages/login/index' })
+      return
+    }
+    
     fetchData()
   }, [])
 
@@ -104,7 +111,7 @@ const RecordsPage: FC = () => {
 
       // 获取美味记录
       const recordsResult = await Network.request({
-        url: '/api/records'
+        url: '/api/orders/records'
       })
       const recordsData = (recordsResult as any).data?.data || []
       setRecords(recordsData)

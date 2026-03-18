@@ -84,6 +84,13 @@ const DishesPage: FC = () => {
 
   // 初始化时检查是否为选择模式
   useEffect(() => {
+    // 检查登录状态
+    const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
+    if (!isLoggedIn) {
+      Taro.redirectTo({ url: '/pages/login/index' })
+      return
+    }
+
     const instance = Taro.getCurrentInstance()
     const params = instance.router?.params || {}
     if (params.mode === 'select' && params.orderId) {

@@ -19,6 +19,19 @@ export class OrderController {
   }
 
   /**
+   * 获取美味记录列表
+   */
+  @Get('records')
+  async getRecords() {
+    const records = await this.orderService.getRecords()
+    return {
+      code: 200,
+      msg: 'success',
+      data: records,
+    }
+  }
+
+  /**
    * 获取单个订单
    */
   @Get(':id')
