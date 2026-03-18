@@ -178,4 +178,75 @@ export class OrderService {
     // 按日期倒序排列
     return result.sort((a, b) => b.date.getTime() - a.date.getTime())
   }
+
+  /**
+   * 获取单个订单
+   */
+  async findOne(id: string): Promise<Order | null> {
+    const order = orders.get(id)
+    if (!order) return null
+    
+    return {
+      ...order,
+      mergedIngredients: this.mergeIngredients(order.items),
+      mergedSeasoning: this.mergeSeasoning(order.items),
+    }
+  }
+
+  /**
+   * 更新订单菜品列表
+   */
+  async updateItems(id: string, items: OrderItem[]): Promise<Order | null> {
+    const order = orders.get(id)
+    if (!order) return null
+
+    const totalCalories = items.reduce((sum, item) => {
+      return sum + item.dish.calories * item.quantity
+    }, 0)
+
+    order.items = items
+    order.totalCalories = totalCalories
+    order.mergedIngredients = this.mergeIngredients(items)
+    order.mergedSeasoning = this.mergeSeasoning(items)
+
+    orders.set(id, order)
+    return order
+  }
+
+  /**
+   * 删除订单中的某个菜品
+   */
+  async removeItem(orderId: string, dishId: string): Promise<Order | null> {
+    const order = orders.get(orderId)
+    if (!order) return null
+
+    const newItems = order.items.filter(item => item.dish.id !== dishId)
+    if (newItems.length === order.items.length) {
+      // 没有删除任何项，说明菜品不存在
+      return null
+    }
+
+    return this.updateItems(orderId, newItems)
+  }
+
+  /**
+   * 向订单添加菜品
+   */
+  async addItem(orderId: string, dish: DishInfo, quantity: number): Promise<Order | null> {
+    const order = orders.get(orderId)
+    if (!order) return null
+
+    // 检查是否已存在该菜品
+    const existingIndex = order.items.findIndex(item => item.dish.id === dish.id)
+    
+    if (existingIndex >= 0) {
+      // 已存在，增加数量
+      order.items[existingIndex].quantity += quantity
+    } else {
+      // 不存在，添加新菜品
+      order.items.push({ dish, quantity })
+    }
+
+    return this.updateItems(orderId, order.items)
+  }
 }

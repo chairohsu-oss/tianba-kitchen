@@ -77,6 +77,20 @@ const DishesPage: FC = () => {
   // 购物车状态
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
+  
+  // 选择模式（从美味记录页面跳转过来）
+  const [selectMode, setSelectMode] = useState(false)
+  const [targetOrderId, setTargetOrderId] = useState<string | null>(null)
+
+  // 初始化时检查是否为选择模式
+  useEffect(() => {
+    const instance = Taro.getCurrentInstance()
+    const params = instance.router?.params || {}
+    if (params.mode === 'select' && params.orderId) {
+      setSelectMode(true)
+      setTargetOrderId(params.orderId)
+    }
+  }, [])
 
   // 获取菜品列表
   useEffect(() => {
@@ -122,8 +136,44 @@ const DishesPage: FC = () => {
     return cartItem ? cartItem.quantity : 0
   }
 
-  // 添加到购物车
+  // 选择模式：添加菜品到订单
+  const addDishToOrder = async (dish: Dish) => {
+    if (!targetOrderId) return
+    
+    try {
+      const result = await Network.request({
+        url: `/api/orders/${targetOrderId}/items`,
+        method: 'POST',
+        data: {
+          dish: {
+            id: dish.id,
+            name: dish.name,
+            images: dish.images,
+            calories: dish.calories || 0,
+            ingredients: dish.ingredients || [],
+            seasoning: dish.seasoning || [],
+            steps: dish.steps || [],
+          },
+          quantity: 1
+        }
+      })
+      if ((result as any).data?.code === 200) {
+        Taro.showToast({ title: '已添加', icon: 'success', duration: 1000 })
+      }
+    } catch (error) {
+      console.error('添加失败', error)
+      Taro.showToast({ title: '添加失败', icon: 'none' })
+    }
+  }
+
+  // 添加到购物车（或选择模式直接添加到订单）
   const addToCart = (dish: Dish) => {
+    if (selectMode && targetOrderId) {
+      // 选择模式：直接添加到订单
+      addDishToOrder(dish)
+      return
+    }
+    
     setCart(prev => {
       const existing = prev.find(item => item.dish.id === dish.id)
       if (existing) {
@@ -344,7 +394,7 @@ const DishesPage: FC = () => {
                         
                         {/* 加减按钮 */}
                         <View className="flex flex-row items-center gap-2">
-                          {getCartQuantity(dish.id) > 0 && (
+                          {!selectMode && getCartQuantity(dish.id) > 0 && (
                             <>
                               <View
                                 className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center"
@@ -358,7 +408,7 @@ const DishesPage: FC = () => {
                             </>
                           )}
                           <View
-                            className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center"
+                            className={`w-6 h-6 rounded-full flex items-center justify-center ${selectMode ? 'bg-green-500' : 'bg-blue-500'}`}
                             onClick={(e) => { e.stopPropagation(); addToCart(dish) }}
                           >
                             <Plus size={14} color="#fff" />
@@ -382,45 +432,62 @@ const DishesPage: FC = () => {
         className="bg-white px-4 py-3 flex-shrink-0"
         style={{ borderTop: '1px solid #E5E7EB' }}
       >
-        <View className="flex flex-row items-center justify-between">
-          {/* 购物车图标 */}
-          <View 
-            className="relative"
-            onClick={() => setShowCart(!showCart)}
-          >
-            <View className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
-              <ShoppingCart size={22} color="#fff" />
+        {selectMode ? (
+          /* 选择模式：显示完成按钮 */
+          <View className="flex flex-row items-center justify-between">
+            <View className="flex flex-row items-center gap-2">
+              <Text className="text-sm text-gray-600">选择模式</Text>
+              <Text className="text-xs text-gray-400">点击菜品添加到订单</Text>
             </View>
-            {getTotalQuantity() > 0 && (
-              <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                <Text className="text-xs text-white font-medium">
-                  {getTotalQuantity()}
-                </Text>
+            <View
+              className="px-8 py-3 rounded-full bg-blue-500"
+              onClick={() => Taro.navigateBack()}
+            >
+              <Text className="text-white font-medium">完成选择</Text>
+            </View>
+          </View>
+        ) : (
+          /* 正常模式：购物车 */
+          <View className="flex flex-row items-center justify-between">
+            {/* 购物车图标 */}
+            <View 
+              className="relative"
+              onClick={() => setShowCart(!showCart)}
+            >
+              <View className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
+                <ShoppingCart size={22} color="#fff" />
               </View>
-            )}
-          </View>
-          
-          {/* 热量 */}
-          <View className="flex-1 px-4">
-            <View className="flex flex-row items-baseline gap-1">
-              <Text className="text-xl font-bold text-orange-500">
-                {getTotalCalories()}
-              </Text>
-              <Text className="text-sm text-gray-400">千卡</Text>
+              {getTotalQuantity() > 0 && (
+                <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                  <Text className="text-xs text-white font-medium">
+                    {getTotalQuantity()}
+                  </Text>
+                </View>
+              )}
             </View>
-            <Text className="text-xs text-gray-400">
-              共 {getTotalQuantity()} 道菜
-            </Text>
+            
+            {/* 热量 */}
+            <View className="flex-1 px-4">
+              <View className="flex flex-row items-baseline gap-1">
+                <Text className="text-xl font-bold text-orange-500">
+                  {getTotalCalories()}
+                </Text>
+                <Text className="text-sm text-gray-400">千卡</Text>
+              </View>
+              <Text className="text-xs text-gray-400">
+                共 {getTotalQuantity()} 道菜
+              </Text>
+            </View>
+            
+            {/* 下单按钮 */}
+            <View
+              className={`px-8 py-3 rounded-full ${cart.length > 0 ? 'bg-blue-500' : 'bg-gray-300'}`}
+              onClick={submitOrder}
+            >
+              <Text className="text-white font-medium">去下单</Text>
+            </View>
           </View>
-          
-          {/* 下单按钮 */}
-          <View
-            className={`px-8 py-3 rounded-full ${cart.length > 0 ? 'bg-blue-500' : 'bg-gray-300'}`}
-            onClick={submitOrder}
-          >
-            <Text className="text-white font-medium">去下单</Text>
-          </View>
-        </View>
+        )}
       </View>
 
       {/* 购物车详情弹窗 */}

@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Check, Clock, Flame, Calendar, ChefHat, X, User } from 'lucide-react-taro'
+import { Check, Clock, Flame, Calendar, ChefHat, X, User, Plus, Minus, Trash2 } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 
@@ -63,6 +63,9 @@ const roleColors: Record<string, string> = {
   'guest': 'bg-gray-100 text-gray-700',
 }
 
+// 有权限的角色（非客人）
+const privilegedRoles = ['head_chef', 'sous_chef', 'order_clerk']
+
 const RecordsPage: FC = () => {
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null)
   const [pendingOrders, setPendingOrders] = useState<Order[]>([])
@@ -73,6 +76,11 @@ const RecordsPage: FC = () => {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // 页面显示时刷新数据（从菜品库返回时）
+  Taro.useDidShow(() => {
+    fetchData()
+  })
 
   const fetchData = async () => {
     setLoading(true)
@@ -107,6 +115,11 @@ const RecordsPage: FC = () => {
     }
   }
 
+  // 检查用户是否有权限操作订单
+  const canModifyOrder = () => {
+    return currentUser && privilegedRoles.includes(currentUser.role)
+  }
+
   // 确认订单
   const confirmOrder = async (orderId: string) => {
     try {
@@ -121,6 +134,90 @@ const RecordsPage: FC = () => {
       console.error('确认失败', error)
       Taro.showToast({ title: '确认失败', icon: 'none' })
     }
+  }
+
+  // 删除订单中的菜品
+  const removeDishFromOrder = async (orderId: string, dishId: string) => {
+    if (!canModifyOrder()) {
+      Taro.showToast({ title: '无权限操作', icon: 'none' })
+      return
+    }
+
+    try {
+      const result = await Network.request({
+        url: `/api/orders/${orderId}/items/${dishId}`,
+        method: 'DELETE'
+      })
+      if ((result as any).data?.code === 200) {
+        Taro.showToast({ title: '已删除', icon: 'success' })
+        fetchData()
+        // 更新选中订单
+        if (selectedOrder && selectedOrder.id === orderId) {
+          const updatedOrder = (result as any).data?.data
+          if (updatedOrder && updatedOrder.items.length > 0) {
+            setSelectedOrder(updatedOrder)
+          } else {
+            setSelectedOrder(null)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('删除失败', error)
+      Taro.showToast({ title: '删除失败', icon: 'none' })
+    }
+  }
+
+  // 修改菜品数量
+  const updateDishQuantity = async (orderId: string, dishId: string, delta: number) => {
+    if (!canModifyOrder()) {
+      Taro.showToast({ title: '无权限操作', icon: 'none' })
+      return
+    }
+
+    const order = pendingOrders.find(o => o.id === orderId)
+    if (!order) return
+
+    const item = order.items.find(i => i.dish.id === dishId)
+    if (!item) return
+
+    const newQuantity = item.quantity + delta
+    if (newQuantity <= 0) {
+      // 数量为0，删除菜品
+      await removeDishFromOrder(orderId, dishId)
+      return
+    }
+
+    // 更新数量
+    const newItems = order.items.map(i => 
+      i.dish.id === dishId ? { ...i, quantity: newQuantity } : i
+    )
+
+    try {
+      await Network.request({
+        url: `/api/orders/${orderId}`,
+        method: 'PUT',
+        data: { items: newItems }
+      })
+      fetchData()
+      // 更新选中订单
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder({
+          ...selectedOrder,
+          items: newItems,
+          totalCalories: newItems.reduce((sum, i) => sum + i.dish.calories * i.quantity, 0)
+        })
+      }
+    } catch (error) {
+      console.error('更新失败', error)
+      Taro.showToast({ title: '更新失败', icon: 'none' })
+    }
+  }
+
+  // 跳转到菜品库添加菜品
+  const goToAddDishes = (orderId: string) => {
+    Taro.navigateTo({ 
+      url: `/pages/dishes/index?orderId=${orderId}&mode=select`
+    })
   }
 
   // 格式化日期
@@ -290,7 +387,7 @@ const RecordsPage: FC = () => {
                   </View>
 
                   {/* 操作按钮 */}
-                  <View className="flex flex-row gap-2">
+                  <View className="flex flex-row gap-2 mb-2">
                     <View
                       className="flex-1 bg-white border border-orange-300 rounded-lg py-2 flex items-center justify-center"
                       onClick={() => viewOrderDetail(order)}
@@ -305,6 +402,26 @@ const RecordsPage: FC = () => {
                       <Text className="text-white text-sm font-medium ml-1">确认</Text>
                     </View>
                   </View>
+
+                  {/* 权限操作按钮（非客人可见） */}
+                  {canModifyOrder() && (
+                    <View className="flex flex-row gap-2">
+                      <View
+                        className="flex-1 bg-blue-50 border border-blue-200 rounded-lg py-1.5 flex flex-row items-center justify-center"
+                        onClick={() => goToAddDishes(order.id)}
+                      >
+                        <Plus size={12} color="#3B82F6" />
+                        <Text className="text-xs text-blue-500 ml-1">添加菜品</Text>
+                      </View>
+                      <View
+                        className="flex-1 bg-red-50 border border-red-200 rounded-lg py-1.5 flex flex-row items-center justify-center"
+                        onClick={() => viewOrderDetail(order)}
+                      >
+                        <Trash2 size={12} color="#EF4444" />
+                        <Text className="text-xs text-red-500 ml-1">删除菜品</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               ))}
             </View>
@@ -420,10 +537,6 @@ const RecordsPage: FC = () => {
                   <View 
                     key={i} 
                     className="flex flex-row items-center gap-3 py-2 border-b border-gray-50"
-                    onClick={() => {
-                      goToDishDetail(item.dish.id)
-                      setSelectedOrder(null)
-                    }}
                   >
                     <Image
                       className="w-16 h-16 rounded-lg"
@@ -435,6 +548,30 @@ const RecordsPage: FC = () => {
                       <Text className="text-xs text-gray-500">数量: {item.quantity}</Text>
                       <Text className="text-xs text-orange-500">{item.dish.calories} 千卡</Text>
                     </View>
+                    {/* 权限操作按钮 */}
+                    {canModifyOrder() && (
+                      <View className="flex flex-row items-center gap-2">
+                        <View
+                          className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center"
+                          onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, -1)}
+                        >
+                          <Minus size={14} color="#6B7280" />
+                        </View>
+                        <Text className="text-sm font-medium w-6 text-center">{item.quantity}</Text>
+                        <View
+                          className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center"
+                          onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, 1)}
+                        >
+                          <Plus size={14} color="#F97316" />
+                        </View>
+                        <View
+                          className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center ml-1"
+                          onClick={() => removeDishFromOrder(selectedOrder.id, item.dish.id)}
+                        >
+                          <Trash2 size={14} color="#EF4444" />
+                        </View>
+                      </View>
+                    )}
                   </View>
                 ))}
               </View>
@@ -477,6 +614,18 @@ const RecordsPage: FC = () => {
 
             {/* 底部按钮 */}
             <View className="flex flex-row gap-3 p-4 border-t border-gray-100">
+              {canModifyOrder() && (
+                <View
+                  className="flex-1 bg-blue-500 rounded-full py-3 flex flex-row items-center justify-center"
+                  onClick={() => {
+                    setSelectedOrder(null)
+                    goToAddDishes(selectedOrder.id)
+                  }}
+                >
+                  <Plus size={18} color="#fff" />
+                  <Text className="text-white font-medium ml-1">添加菜品</Text>
+                </View>
+              )}
               <View
                 className="flex-1 bg-gray-100 rounded-full py-3 flex items-center justify-center"
                 onClick={() => setSelectedOrder(null)}
