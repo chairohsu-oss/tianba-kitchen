@@ -68,19 +68,29 @@ const HomePage: FC = () => {
     if (isWeapp) {
       const manager = Taro.getRecorderManager()
       manager.onStart(() => {
+        console.log('录音开始')
         setIsRecording(true)
       })
       manager.onStop((res) => {
+        console.log('录音停止, tempFilePath:', res.tempFilePath)
         setIsRecording(false)
         // 使用 ref 来避免闭包问题
         if (!isCancellingRef.current) {
-          handleVoiceInputRef.current(res.tempFilePath)
+          // 延迟执行，确保状态已重置
+          setTimeout(() => {
+            handleVoiceInputRef.current(res.tempFilePath)
+          }, 100)
         }
         setIsCancelling(false)
       })
       manager.onError((err) => {
-        console.error('录音错误', err)
-        Taro.showToast({ title: '录音失败，请检查麦克风权限', icon: 'none', duration: 2000 })
+        console.error('录音错误:', JSON.stringify(err))
+        const errMsg = err?.errMsg || '录音失败，请检查麦克风权限'
+        Taro.showToast({ 
+          title: errMsg, 
+          icon: 'none', 
+          duration: 2000 
+        })
         setIsRecording(false)
         setIsCancelling(false)
       })
@@ -362,12 +372,48 @@ const HomePage: FC = () => {
   }, [isCancelling])
 
   // 开始录音
-  const startRecording = () => {
+  const startRecording = async () => {
     if (!isWeapp) {
       Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
       return
     }
+    
+    // 如果正在录音，先停止
+    if (isRecording) {
+      console.log('已在录音中，忽略重复开始')
+      return
+    }
+    
+    // 如果正在处理中，不允许录音
+    if (isLoadingRef.current) {
+      Taro.showToast({ title: '正在处理中，请稍候', icon: 'none' })
+      return
+    }
+    
+    try {
+      // 先请求录音权限
+      const authResult = await Taro.authorize({ scope: 'scope.record' })
+      console.log('录音权限授权结果:', authResult)
+    } catch (authError: any) {
+      console.error('录音权限请求失败:', authError)
+      // 如果用户之前拒绝过，引导用户去设置页面开启权限
+      if (authError?.errMsg?.includes('auth deny')) {
+        Taro.showModal({
+          title: '需要录音权限',
+          content: '请在设置中开启麦克风权限',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              Taro.openSetting()
+            }
+          }
+        })
+        return
+      }
+    }
+    
     setIsCancelling(false)
+    console.log('开始录音...')
     recorderManagerRef.current?.start({
       format: 'wav',
       sampleRate: 16000,
@@ -377,6 +423,7 @@ const HomePage: FC = () => {
 
   // 停止录音
   const stopRecording = () => {
+    console.log('停止录音...')
     recorderManagerRef.current?.stop()
   }
 
