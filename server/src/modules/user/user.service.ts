@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import type { User, VerificationCode } from '@/storage/database/shared/schema'
+
+// 导出类型供其他模块使用
+export type { User, VerificationCode }
 
 // 用户等级枚举
 export enum UserRole {
@@ -15,29 +20,6 @@ export enum Permission {
   CONFIRM_ORDER = 'confirm_order',       // 确认订单
   UPLOAD_DISH = 'upload_dish',           // 上传菜品
   MANAGE_USERS = 'manage_users',         // 管理用户
-}
-
-// 用户接口
-export interface User {
-  id: string
-  wechatId: string
-  nickname: string
-  avatarUrl: string
-  role: UserRole
-  verified: boolean           // 是否已验证
-  verificationCode?: string   // 使用的验证码
-  createdAt: Date
-  updatedAt: Date
-}
-
-// 验证码接口
-export interface VerificationCode {
-  code: string
-  description: string         // 验证码描述（如"家庭成员A"）
-  usedBy?: string            // 使用者用户ID
-  usedAt?: Date              // 使用时间
-  createdAt: Date
-  createdBy: string          // 创建者用户ID
 }
 
 // 角色权限映射
@@ -72,124 +54,167 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.GUEST]: '客人',
 }
 
-// 内存存储（生产环境应使用数据库）
-const users: Map<string, User> = new Map()
-const verificationCodes: Map<string, VerificationCode> = new Map()
-
 @Injectable()
-export class UserService {
-  constructor() {
-    this.initDefaultUsers()
+export class UserService implements OnModuleInit {
+  private client = getSupabaseClient()
+
+  async onModuleInit() {
+    // 检查数据库是否有用户，没有则初始化示例数据
+    const { count } = await this.client
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+
+    if (count === 0) {
+      console.log('初始化默认用户数据...')
+      await this.initDefaultUsers()
+    }
+
+    // 检查验证码表
+    const { count: codeCount } = await this.client
+      .from('verification_codes')
+      .select('*', { count: 'exact', head: true })
+
+    if (codeCount === 0) {
+      console.log('初始化默认验证码...')
+      await this.initDefaultVerificationCodes()
+    }
   }
 
   /**
    * 初始化默认用户
    */
-  private initDefaultUsers() {
-    const defaultUsers: User[] = [
+  private async initDefaultUsers() {
+    const defaultUsers = [
       {
         id: 'user-1',
-        wechatId: 'head_chef_wechat',
+        wechat_id: 'head_chef_wechat',
         nickname: '张大厨',
-        avatarUrl: 'https://picsum.photos/100?random=chef',
-        role: UserRole.HEAD_CHEF,
+        avatar_url: 'https://picsum.photos/100?random=chef',
+        role: 'head_chef',
         verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'user-2',
-        wechatId: 'sous_chef_wechat',
+        wechat_id: 'sous_chef_wechat',
         nickname: '李领班',
-        avatarUrl: 'https://picsum.photos/100?random=sous',
-        role: UserRole.SOUS_CHEF,
+        avatar_url: 'https://picsum.photos/100?random=sous',
+        role: 'sous_chef',
         verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'user-3',
-        wechatId: 'order_clerk_wechat',
+        wechat_id: 'order_clerk_wechat',
         nickname: '王下单',
-        avatarUrl: 'https://picsum.photos/100?random=clerk',
-        role: UserRole.ORDER_CLERK,
+        avatar_url: 'https://picsum.photos/100?random=clerk',
+        role: 'order_clerk',
         verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'user-4',
-        wechatId: 'guest_wechat',
+        wechat_id: 'guest_wechat',
         nickname: '赵客人',
-        avatarUrl: 'https://picsum.photos/100?random=guest',
-        role: UserRole.GUEST,
+        avatar_url: 'https://picsum.photos/100?random=guest',
+        role: 'guest',
         verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'default_user',
-        wechatId: 'default_wechat',
+        wechat_id: 'default_wechat',
         nickname: '默认用户',
-        avatarUrl: 'https://picsum.photos/100?random=default',
-        role: UserRole.ORDER_CLERK,
+        avatar_url: 'https://picsum.photos/100?random=default',
+        role: 'order_clerk',
         verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
     ]
 
-    defaultUsers.forEach(user => {
-      users.set(user.id, user)
-    })
+    const { error } = await this.client
+      .from('users')
+      .insert(defaultUsers)
 
-    // 初始化默认验证码
-    this.initDefaultVerificationCodes()
+    if (error) {
+      console.error('初始化默认用户失败:', error)
+    } else {
+      console.log('默认用户初始化完成')
+    }
   }
 
   /**
    * 初始化默认验证码
    */
-  private initDefaultVerificationCodes() {
-    const defaultCodes: VerificationCode[] = [
+  private async initDefaultVerificationCodes() {
+    const defaultCodes = [
       {
         code: 'TIANBA2024',
         description: '家庭成员验证码',
-        createdAt: new Date(),
-        createdBy: 'user-1',
+        created_by: 'user-1',
       },
       {
         code: 'FAMILY2024',
         description: '亲友验证码',
-        createdAt: new Date(),
-        createdBy: 'user-1',
+        created_by: 'user-1',
       },
     ]
 
-    defaultCodes.forEach(vc => {
-      verificationCodes.set(vc.code, vc)
-    })
+    const { error } = await this.client
+      .from('verification_codes')
+      .insert(defaultCodes)
+
+    if (error) {
+      console.error('初始化默认验证码失败:', error)
+    } else {
+      console.log('默认验证码初始化完成')
+    }
   }
 
   /**
    * 获取所有用户
    */
   async findAll(): Promise<User[]> {
-    return Array.from(users.values())
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('查询用户失败:', error)
+      return []
+    }
+
+    return data || []
   }
 
   /**
    * 根据ID获取用户
    */
   async findOne(id: string): Promise<User | null> {
-    return users.get(id) || null
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return data
   }
 
   /**
    * 根据微信ID获取用户
    */
   async findByWechatId(wechatId: string): Promise<User | null> {
-    return Array.from(users.values()).find(u => u.wechatId === wechatId) || null
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .eq('wechat_id', wechatId)
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return data
   }
 
   /**
@@ -202,39 +227,53 @@ export class UserService {
   }): Promise<User> {
     // 查找是否已存在
     let user = await this.findByWechatId(data.wechatId)
+    const userAny = user as any
     
     if (user) {
       // 更新用户信息
-      user = {
-        ...user,
-        nickname: data.nickname,
-        avatarUrl: data.avatarUrl || user.avatarUrl,
-        updatedAt: new Date(),
+      const { data: updated, error } = await this.client
+        .from('users')
+        .update({
+          nickname: data.nickname,
+          avatar_url: data.avatarUrl || userAny.avatar_url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('更新用户失败:', error)
+        return user
       }
-      users.set(user.id, user)
+      return updated
     } else {
       // 创建新用户，默认为客人，未验证
-      user = {
-        id: `user-${Date.now()}`,
-        wechatId: data.wechatId,
-        nickname: data.nickname,
-        avatarUrl: data.avatarUrl || 'https://picsum.photos/100?random=new',
-        role: UserRole.GUEST,
-        verified: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      const { data: newUser, error } = await this.client
+        .from('users')
+        .insert({
+          wechat_id: data.wechatId,
+          nickname: data.nickname,
+          avatar_url: data.avatarUrl || 'https://picsum.photos/100?random=new',
+          role: 'guest',
+          verified: false,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('创建用户失败:', error)
+        throw new Error('创建用户失败')
       }
-      users.set(user.id, user)
+      return newUser
     }
-    
-    return user
   }
 
   /**
    * 验证用户
    */
   async verifyUser(userId: string, code: string): Promise<{ success: boolean; message: string; user?: User }> {
-    const user = users.get(userId)
+    const user = await this.findOne(userId)
     if (!user) {
       return { success: false, message: '用户不存在' }
     }
@@ -243,35 +282,55 @@ export class UserService {
       return { success: true, message: '用户已验证', user }
     }
 
-    const verificationCode = verificationCodes.get(code)
-    if (!verificationCode) {
+    // 查询验证码
+    const { data: verificationCode, error: vcError } = await this.client
+      .from('verification_codes')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (vcError || !verificationCode) {
       return { success: false, message: '验证码无效' }
     }
 
-    if (verificationCode.usedBy && verificationCode.usedBy !== userId) {
+    if (verificationCode.used_by && verificationCode.used_by !== userId) {
       return { success: false, message: '验证码已被使用' }
     }
 
-    // 验证成功
-    user.verified = true
-    user.verificationCode = code
-    user.role = UserRole.ORDER_CLERK  // 验证后默认为下单员
-    user.updatedAt = new Date()
-    users.set(userId, user)
+    // 验证成功，更新用户
+    const { data: updatedUser, error: updateError } = await this.client
+      .from('users')
+      .update({
+        verified: true,
+        verification_code: code,
+        role: 'order_clerk',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (updateError) {
+      return { success: false, message: '验证失败' }
+    }
 
     // 标记验证码已使用
-    verificationCode.usedBy = userId
-    verificationCode.usedAt = new Date()
-    verificationCodes.set(code, verificationCode)
+    await this.client
+      .from('verification_codes')
+      .update({
+        used_by: userId,
+        used_at: new Date().toISOString(),
+      })
+      .eq('code', code)
 
-    return { success: true, message: '验证成功', user }
+    return { success: true, message: '验证成功', user: updatedUser }
   }
 
   /**
    * 检查用户是否已验证
    */
   async isVerified(userId: string): Promise<boolean> {
-    const user = users.get(userId)
+    const user = await this.findOne(userId)
     return user?.verified ?? false
   }
 
@@ -279,78 +338,121 @@ export class UserService {
    * 创建验证码（管理员操作）
    */
   async createVerificationCode(code: string, description: string, createdBy: string): Promise<VerificationCode> {
-    const vc: VerificationCode = {
-      code,
-      description,
-      createdAt: new Date(),
-      createdBy,
+    const { data, error } = await this.client
+      .from('verification_codes')
+      .insert({
+        code,
+        description,
+        created_by: createdBy,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('创建验证码失败:', error)
+      throw new Error('创建验证码失败')
     }
-    verificationCodes.set(code, vc)
-    return vc
+
+    return data
   }
 
   /**
    * 获取所有验证码
    */
   async getAllVerificationCodes(): Promise<VerificationCode[]> {
-    return Array.from(verificationCodes.values())
+    const { data, error } = await this.client
+      .from('verification_codes')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('查询验证码失败:', error)
+      return []
+    }
+
+    return data || []
   }
 
   /**
    * 删除验证码
    */
   async deleteVerificationCode(code: string): Promise<boolean> {
-    return verificationCodes.delete(code)
+    const { error } = await this.client
+      .from('verification_codes')
+      .delete()
+      .eq('code', code)
+
+    return !error
   }
 
   /**
    * 重置用户验证状态（管理员操作）
    */
   async resetUserVerification(userId: string): Promise<User | null> {
-    const user = users.get(userId)
+    const user = await this.findOne(userId)
     if (!user) return null
 
+    const userAny = user as any
     // 释放验证码
-    if (user.verificationCode) {
-      const vc = verificationCodes.get(user.verificationCode)
-      if (vc) {
-        vc.usedBy = undefined
-        vc.usedAt = undefined
-        verificationCodes.set(user.verificationCode, vc)
-      }
+    if (userAny.verification_code) {
+      await this.client
+        .from('verification_codes')
+        .update({
+          used_by: null,
+          used_at: null,
+        })
+        .eq('code', userAny.verification_code)
     }
 
-    user.verified = false
-    user.verificationCode = undefined
-    user.role = UserRole.GUEST
-    user.updatedAt = new Date()
-    users.set(userId, user)
-    
-    return user
+    // 重置用户状态
+    const { data, error } = await this.client
+      .from('users')
+      .update({
+        verified: false,
+        verification_code: null,
+        role: 'guest',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return data
   }
 
   /**
    * 更新用户等级
    */
   async updateRole(id: string, role: UserRole): Promise<User | null> {
-    const user = users.get(id)
-    if (!user) return null
-    
-    user.role = role
-    user.updatedAt = new Date()
-    users.set(id, user)
-    
-    return user
+    const { data, error } = await this.client
+      .from('users')
+      .update({
+        role,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return data
   }
 
   /**
    * 获取用户权限列表
    */
   async getPermissions(id: string): Promise<Permission[]> {
-    const user = users.get(id)
+    const user = await this.findOne(id)
     if (!user) return []
     
-    return ROLE_PERMISSIONS[user.role] || []
+    return ROLE_PERMISSIONS[user.role as UserRole] || []
   }
 
   /**

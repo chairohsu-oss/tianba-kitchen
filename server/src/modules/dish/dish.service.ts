@@ -1,31 +1,15 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { S3Storage } from 'coze-coding-dev-sdk'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import type { Dish } from '@/storage/database/shared/schema'
 
-export interface Dish {
-  id: string
-  name: string
-  images: string[]
-  category: string
-  cuisine?: string
-  calories: number
-  protein: number
-  carbs: number
-  fat: number
-  ingredients: string[]
-  seasoning: string[]
-  steps: string[]
-  tips: string
-  description: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-// 内存存储（生产环境应使用数据库）
-const dishes: Map<string, Dish> = new Map()
+// 导出 Dish 类型供其他模块使用
+export type { Dish }
 
 @Injectable()
-export class DishService {
+export class DishService implements OnModuleInit {
   private storage: S3Storage
+  private client = getSupabaseClient()
 
   constructor() {
     this.storage = new S3Storage({
@@ -35,13 +19,22 @@ export class DishService {
       bucketName: process.env.COZE_BUCKET_NAME,
       region: 'cn-beijing',
     })
-
-    // 初始化一些示例数据
-    this.initSampleData()
   }
 
-  private initSampleData() {
-    const sampleDishes: Dish[] = [
+  async onModuleInit() {
+    // 检查数据库是否有菜品，没有则初始化示例数据
+    const { count } = await this.client
+      .from('dishes')
+      .select('*', { count: 'exact', head: true })
+
+    if (count === 0) {
+      console.log('初始化示例菜品数据...')
+      await this.initSampleData()
+    }
+  }
+
+  private async initSampleData() {
+    const sampleDishes = [
       // ========== 中餐 - 天霸家自制 ==========
       {
         id: 'chinese-tianba-1',
@@ -58,8 +51,6 @@ export class DishService {
         steps: ['五花肉切块焯水', '炒糖色', '放入肉块翻炒上色', '加调料炖煮1小时', '大火收汁'],
         tips: '选用三层五花肉，肥瘦相间口感最佳',
         description: '天霸家传秘方，肥而不腻，入口即化',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-tianba-2',
@@ -76,8 +67,6 @@ export class DishService {
         steps: ['肉糜加调料搅打上劲', '马蹄切碎拌入', '捏成大肉丸', '小火慢炖30分钟', '加入青菜心'],
         tips: '肉丸要轻柔，炖煮时小火保持形状',
         description: '淮扬经典，肉丸松软，汤汁清鲜',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 江浙菜 ==========
       {
@@ -95,8 +84,6 @@ export class DishService {
         steps: ['草鱼处理干净', '水煮葱姜', '鱼入锅煮熟', '调糖醋汁', '浇汁上桌'],
         tips: '鱼肉要嫩，汁要酸甜适中',
         description: '杭州名菜，酸甜可口，鱼肉鲜嫩',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-jiangzhe-2',
@@ -113,8 +100,6 @@ export class DishService {
         steps: ['五花肉切块焯水', '砂锅铺葱姜', '肉皮朝下码放', '加黄酒和调料', '小火炖2小时'],
         tips: '必须用绍兴黄酒，小火慢炖',
         description: '宋代名菜，色泽红亮，酥烂入味',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 温州菜 ==========
       {
@@ -132,8 +117,6 @@ export class DishService {
         steps: ['鱼肉刮成鱼茸', '加调料搅打上劲', '挤成鱼丸入温水', '煮熟后加葱花'],
         tips: '鱼肉要新鲜，搅打要充分',
         description: '温州特色，鱼丸Q弹，汤鲜味美',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-wenzhou-2',
@@ -150,8 +133,6 @@ export class DishService {
         steps: ['米粉调成浆', '萝卜丝加盐腌制', '油温烧至七成热', '倒入米浆加馅料', '炸至金黄'],
         tips: '油温要适中，炸至外酥里嫩',
         description: '温州传统小吃，外酥里嫩，咸香可口',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 粤菜 ==========
       {
@@ -169,8 +150,6 @@ export class DishService {
         steps: ['鸡处理干净', '水烧开放入葱姜', '提鸡三浸三提', '小火煮15分钟', '冰水浸泡'],
         tips: '三浸三提让皮更爽滑',
         description: '粤菜经典，皮爽肉滑，原汁原味',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-yue-2',
@@ -187,8 +166,6 @@ export class DishService {
         steps: ['粉丝泡软', '蒜蓉爆香', '扇贝铺粉丝', '浇蒜蓉', '蒸5分钟'],
         tips: '蒜蓉要炒出香味',
         description: '粤式海鲜，鲜嫩多汁，蒜香浓郁',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 东北菜 ==========
       {
@@ -206,8 +183,6 @@ export class DishService {
         steps: ['肉切片裹淀粉', '油炸至金黄', '调糖醋汁', '快炒裹汁出锅'],
         tips: '炸肉要复炸，糖醋汁要快炒',
         description: '东北名菜，外酥里嫩，酸甜可口',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-dongbei-2',
@@ -224,8 +199,6 @@ export class DishService {
         steps: ['鸡块焯水', '榛蘑泡发', '炖煮鸡肉40分钟', '加蘑菇粉条', '继续炖20分钟'],
         tips: '榛蘑是灵魂，土鸡更香',
         description: '东北炖菜代表，鲜香浓郁',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 湖南菜 ==========
       {
@@ -243,8 +216,6 @@ export class DishService {
         steps: ['鱼头处理干净剖开', '铺剁椒', '蒸10分钟', '浇热油'],
         tips: '剁椒要铺满，蒸好浇热油更香',
         description: '湘菜代表，鲜辣开胃，鱼肉嫩滑',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-hunan-2',
@@ -261,8 +232,6 @@ export class DishService {
         steps: ['五花肉煸炒出油', '加蒜和豆豉', '放青椒翻炒', '调味出锅'],
         tips: '青椒要选辣的，肉要煸出油',
         description: '湖南家常菜，香辣下饭',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 云南菜 ==========
       {
@@ -280,8 +249,6 @@ export class DishService {
         steps: ['熬制鸡汤', '碗中放入配料', '滚烫鸡汤倒入', '放入米线'],
         tips: '汤要滚烫，配料分开下',
         description: '云南名吃，汤鲜料足，米线爽滑',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-yunnan-2',
@@ -298,8 +265,6 @@ export class DishService {
         steps: ['鸡块放入汽锅', '加调料', '蒸2小时', '汤成出锅'],
         tips: '汽锅蒸制，原汁原味',
         description: '云南特色，汤清味鲜，营养丰富',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 中餐 - 其它 ==========
       {
@@ -317,8 +282,6 @@ export class DishService {
         steps: ['鸡肉切丁上浆', '炸花生米', '炒鸡丁', '加调料和花生', '快速翻炒'],
         tips: '花生米要最后放保持酥脆',
         description: '经典川菜，麻辣酸甜，花生酥脆',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'chinese-other-2',
@@ -335,8 +298,6 @@ export class DishService {
         steps: ['豆腐切块焯水', '炒肉末和豆瓣酱', '加豆腐炖煮', '勾芡撒花椒粉'],
         tips: '豆腐要嫩，花椒粉要香',
         description: '川菜经典，麻辣鲜香，嫩滑入味',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 早餐 ==========
       {
@@ -353,8 +314,6 @@ export class DishService {
         steps: ['煮面条', '熬葱油', '调酱汁', '拌匀'],
         tips: '葱要炸到焦香',
         description: '上海经典早餐，葱香四溢',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'breakfast-2',
@@ -370,8 +329,6 @@ export class DishService {
         steps: ['黄豆泡发打浆', '面粉加鸡蛋和面', '发酵后切条', '油炸至金黄'],
         tips: '油条要现炸现吃',
         description: '经典中式早餐，营养搭配',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 点心 ==========
       {
@@ -388,8 +345,6 @@ export class DishService {
         steps: ['和面擀皮', '肉馅加皮冻', '包成小笼', '蒸8分钟'],
         tips: '皮冻是汤汁的关键',
         description: '江南名点，皮薄馅大，汤汁鲜美',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'snack-2',
@@ -405,8 +360,6 @@ export class DishService {
         steps: ['调韭菜鸡蛋馅', '包饺子', '煎至底部金黄', '加水焖熟'],
         tips: '煎时要小火慢煎',
         description: '香脆可口，底部焦脆',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 甜点 ==========
       {
@@ -423,8 +376,6 @@ export class DishService {
         steps: ['西米煮熟过冷水', '芒果打泥', '混合椰浆和西米', '加芒果粒和柚子'],
         tips: '西米要煮透，过冷水更Q',
         description: '港式甜品，芒果香甜，椰香浓郁',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'dessert-2',
@@ -440,8 +391,6 @@ export class DishService {
         steps: ['牛奶煮出奶皮', '倒出牛奶与蛋清混合', '倒回碗中蒸制', '冷却后食用'],
         tips: '奶皮要完整，蒸制要小火',
         description: '顺德名点，奶香浓郁，口感嫩滑',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 饮料 ==========
       {
@@ -458,8 +407,6 @@ export class DishService {
         steps: ['煮珍珠', '泡红茶', '加牛奶和糖', '加入珍珠'],
         tips: '珍珠要现煮现用',
         description: '台式饮品，珍珠Q弹，茶香奶香',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'drink-2',
@@ -475,8 +422,6 @@ export class DishService {
         steps: ['杨梅洗净', '加盐水浸泡', '加冰糖煮制', '过滤取汁'],
         tips: '杨梅要新鲜，加盐可提鲜',
         description: '夏日饮品，酸甜解暑',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 西餐 ==========
       {
@@ -493,8 +438,6 @@ export class DishService {
         steps: ['煮意面', '炒洋葱和牛肉', '加番茄煮酱', '与意面拌匀'],
         tips: '意面要煮到弹牙',
         description: '经典西餐，肉酱浓郁，面条爽滑',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'western-2',
@@ -510,8 +453,6 @@ export class DishService {
         steps: ['土豆切条炸制', '牛排煎至喜欢的熟度', '西兰花焯水', '摆盘浇黄油'],
         tips: '牛排要室温后再煎',
         description: '西式主菜，牛排鲜嫩，薯条酥脆',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 日餐 ==========
       {
@@ -528,8 +469,6 @@ export class DishService {
         steps: ['米饭加寿司醋', '鱼片切好', '捏制寿司', '配芥末酱油'],
         tips: '米饭要微温时捏制',
         description: '日式料理，新鲜美味，精致美观',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'japanese-2',
@@ -545,8 +484,6 @@ export class DishService {
         steps: ['煮拉面', '准备叉烧和溏心蛋', '盛入豚骨汤', '摆上配料'],
         tips: '溏心蛋是灵魂',
         description: '日本国民美食，汤浓面弹',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 韩餐 ==========
       {
@@ -563,8 +500,6 @@ export class DishService {
         steps: ['五花肉切片', '烤盘烤至金黄', '生菜包肉', '加大蒜和辣酱'],
         tips: '五花肉要烤出油才香',
         description: '韩国美食，肉香四溢，包生菜解腻',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'korean-2',
@@ -580,8 +515,6 @@ export class DishService {
         steps: ['准备各种蔬菜', '牛肉炒熟', '石锅抹油放米饭', '摆菜加蛋', '加热到底部焦脆'],
         tips: '石锅要热到底部有锅巴',
         description: '韩式经典，营养均衡，底部锅巴香脆',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       // ========== 东南亚 ==========
       {
@@ -598,8 +531,6 @@ export class DishService {
         steps: ['香茅柠檬叶煮汤底', '加冬阴功酱', '放入虾和蘑菇', '加椰浆和调料'],
         tips: '最后加柠檬汁保持酸味',
         description: '泰国名汤，酸辣开胃，椰香浓郁',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
         id: 'southeast-2',
@@ -615,14 +546,18 @@ export class DishService {
         steps: ['熬制牛骨汤', '河粉烫熟', '放入牛肉片', '加配料和调料'],
         tips: '牛肉要薄，汤要滚烫',
         description: '越南国民美食，汤清味鲜',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
     ]
 
-    sampleDishes.forEach((dish) => {
-      dishes.set(dish.id, dish)
-    })
+    const { error } = await this.client
+      .from('dishes')
+      .insert(sampleDishes)
+
+    if (error) {
+      console.error('初始化示例数据失败:', error)
+    } else {
+      console.log('示例菜品数据初始化完成，共', sampleDishes.length, '道菜')
+    }
   }
 
   async findAll(query: {
@@ -630,32 +565,49 @@ export class DishService {
     cuisine?: string
     name?: string
   }): Promise<Dish[]> {
-    let result = Array.from(dishes.values())
+    let queryBuilder = this.client
+      .from('dishes')
+      .select('*')
 
     if (query.category) {
-      result = result.filter((d) => d.category === query.category)
+      queryBuilder = queryBuilder.eq('category', query.category)
     }
 
     if (query.cuisine) {
-      result = result.filter((d) => d.cuisine === query.cuisine)
+      queryBuilder = queryBuilder.eq('cuisine', query.cuisine)
     }
 
     if (query.name) {
-      result = result.filter((d) =>
-        d.name.toLowerCase().includes(query.name!.toLowerCase()),
-      )
+      queryBuilder = queryBuilder.ilike('name', `%${query.name}%`)
     }
 
-    return result
+    const { data, error } = await queryBuilder.order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('查询菜品失败:', error)
+      return []
+    }
+
+    return data || []
   }
 
   async findOne(id: string): Promise<Dish | null> {
-    return dishes.get(id) || null
+    const { data, error } = await this.client
+      .from('dishes')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return data
   }
 
   async create(data: Partial<Dish>): Promise<Dish> {
-    const dish: Dish = {
-      id: Date.now().toString(),
+    const dish = {
+      id: data.id || Date.now().toString(),
       name: data.name || '',
       images: data.images || [],
       category: data.category || 'chinese',
@@ -669,30 +621,47 @@ export class DishService {
       steps: data.steps || [],
       tips: data.tips || '',
       description: data.description || '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
     }
 
-    dishes.set(dish.id, dish)
-    return dish
+    const { data: result, error } = await this.client
+      .from('dishes')
+      .insert(dish)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('创建菜品失败:', error)
+      throw new Error('创建菜品失败')
+    }
+
+    return result
   }
 
   async update(id: string, data: Partial<Dish>): Promise<Dish | null> {
-    const existing = dishes.get(id)
-    if (!existing) return null
+    const { data: result, error } = await this.client
+      .from('dishes')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
 
-    const updated: Dish = {
-      ...existing,
-      ...data,
-      updatedAt: new Date(),
+    if (error) {
+      return null
     }
 
-    dishes.set(id, updated)
-    return updated
+    return result
   }
 
   async remove(id: string): Promise<boolean> {
-    return dishes.delete(id)
+    const { error } = await this.client
+      .from('dishes')
+      .delete()
+      .eq('id', id)
+
+    return !error
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {

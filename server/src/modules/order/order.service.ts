@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import type { Order, OrderItem, DeliciousRecord } from '@/storage/database/shared/schema'
 
 export interface UserInfo {
   id: string
@@ -16,65 +18,68 @@ export interface DishInfo {
   steps?: string[]
 }
 
-export interface OrderItem {
-  dish: DishInfo
-  quantity: number
-}
-
-export interface Order {
-  id: string
-  items: OrderItem[]
-  totalCalories: number
-  createdAt: Date
-  status: 'pending' | 'confirmed'
-  mergedIngredients?: string[]
-  mergedSeasoning?: string[]
-  userId?: string
-  user?: UserInfo
-}
-
-export interface DeliciousRecord {
-  id: string
-  date: Date
-  dishes: DishInfo[]
-  totalCalories: number
-}
-
-// 内存存储（生产环境应使用数据库）
-const orders: Map<string, Order> = new Map()
-const records: Map<string, DeliciousRecord> = new Map()
-
 @Injectable()
 export class OrderService {
+  private client = getSupabaseClient()
+
   /**
    * 获取订单列表
    */
-  async findAll(status?: string): Promise<Order[]> {
-    let result = Array.from(orders.values())
-    
+  async findAll(status?: string): Promise<any[]> {
+    let query = this.client
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+
     if (status) {
-      result = result.filter(o => o.status === status)
+      query = query.eq('status', status)
     }
-    
-    // 按时间倒序排列，并计算合并的食材配料
-    return result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .map(order => ({
-        ...order,
-        mergedIngredients: this.mergeIngredients(order.items),
-        mergedSeasoning: this.mergeSeasoning(order.items),
+
+    const { data: orders, error } = await query
+
+    if (error) {
+      console.error('查询订单失败:', error)
+      return []
+    }
+
+    // 获取每个订单的订单项
+    const result: any[] = []
+    for (const order of orders || []) {
+      const { data: items } = await this.client
+        .from('order_items')
+        .select('*')
+        .eq('order_id', order.id)
+
+      const orderItems = (items || []).map(item => ({
+        dish: {
+          id: item.dish_id,
+          name: item.dish_name,
+          images: item.dish_image ? [item.dish_image] : [],
+          calories: 0,
+        },
+        quantity: item.quantity,
       }))
+
+      result.push({
+        ...order,
+        items: orderItems,
+        mergedIngredients: order.merged_ingredients || [],
+        mergedSeasoning: order.merged_seasoning || [],
+      })
+    }
+
+    return result
   }
 
   /**
    * 合并食材清单（去重合并）
    */
-  private mergeIngredients(items: OrderItem[]): string[] {
+  private mergeIngredients(items: { dish: DishInfo; quantity: number }[]): string[] {
     const ingredientMap = new Map<string, string>()
     
     for (const item of items) {
       if (item.dish.ingredients && Array.isArray(item.dish.ingredients)) {
         for (const ing of item.dish.ingredients) {
-          // 提取食材名称（去掉用量）
           const match = ing.match(/^(.+?)(?:\s+\d+.*)?$/)
           const name = match ? match[1].trim() : ing.trim()
           if (name && !ingredientMap.has(name)) {
@@ -90,13 +95,12 @@ export class OrderService {
   /**
    * 合并配料清单（去重合并）
    */
-  private mergeSeasoning(items: OrderItem[]): string[] {
+  private mergeSeasoning(items: { dish: DishInfo; quantity: number }[]): string[] {
     const seasoningMap = new Map<string, string>()
     
     for (const item of items) {
       if (item.dish.seasoning && Array.isArray(item.dish.seasoning)) {
         for (const s of item.dish.seasoning) {
-          // 提取配料名称（去掉用量）
           const match = s.match(/^(.+?)(?:\s+\d+.*)?$/)
           const name = match ? match[1].trim() : s.trim()
           if (name && !seasoningMap.has(name)) {
@@ -112,117 +116,228 @@ export class OrderService {
   /**
    * 创建订单
    */
-  async create(items: OrderItem[], user?: UserInfo): Promise<Order> {
+  async create(items: { dish: DishInfo; quantity: number }[], user?: UserInfo): Promise<any> {
     const totalCalories = items.reduce((sum, item) => {
       return sum + item.dish.calories * item.quantity
     }, 0)
 
-    const order: Order = {
-      id: Date.now().toString(),
-      items,
-      totalCalories,
-      createdAt: new Date(),
-      status: 'pending',
-      mergedIngredients: this.mergeIngredients(items),
-      mergedSeasoning: this.mergeSeasoning(items),
-      userId: user?.id,
-      user: user,
+    const mergedIngredients = this.mergeIngredients(items)
+    const mergedSeasoning = this.mergeSeasoning(items)
+
+    // 创建订单
+    const { data: order, error: orderError } = await this.client
+      .from('orders')
+      .insert({
+        user_id: user?.id,
+        status: 'pending',
+        total_calories: totalCalories,
+        merged_ingredients: mergedIngredients,
+        merged_seasoning: mergedSeasoning,
+      })
+      .select()
+      .single()
+
+    if (orderError) {
+      console.error('创建订单失败:', orderError)
+      throw new Error('创建订单失败')
     }
 
-    orders.set(order.id, order)
-    return order
+    // 创建订单项
+    const orderItems = items.map(item => ({
+      order_id: order.id,
+      dish_id: item.dish.id,
+      dish_name: item.dish.name,
+      dish_image: item.dish.images?.[0] || '',
+      quantity: item.quantity,
+    }))
+
+    const { error: itemsError } = await this.client
+      .from('order_items')
+      .insert(orderItems)
+
+    if (itemsError) {
+      console.error('创建订单项失败:', itemsError)
+    }
+
+    return {
+      ...order,
+      items: items.map(item => ({
+        dish: item.dish,
+        quantity: item.quantity,
+      })),
+      mergedIngredients,
+      mergedSeasoning,
+    }
   }
 
   /**
    * 确认订单（生成美味记录）
    */
-  async confirm(id: string): Promise<{ order: Order; record: DeliciousRecord } | null> {
-    const order = orders.get(id)
-    if (!order) return null
+  async confirm(id: string): Promise<{ order: any; record: any } | null> {
+    // 获取订单
+    const { data: order, error: orderError } = await this.client
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (orderError || !order) return null
+
+    // 获取订单项
+    const { data: items } = await this.client
+      .from('order_items')
+      .select('*')
+      .eq('order_id', id)
 
     // 更新订单状态
-    order.status = 'confirmed'
-    orders.set(id, order)
+    const { data: updatedOrder } = await this.client
+      .from('orders')
+      .update({ status: 'confirmed' })
+      .eq('id', id)
+      .select()
+      .single()
 
     // 生成美味记录
-    const dishes = order.items.flatMap(item => {
-      // 根据数量生成多条记录
-      return Array(item.quantity).fill(null).map(() => ({
-        id: item.dish.id,
-        name: item.dish.name,
-        images: item.dish.images,
-        calories: item.dish.calories,
-        ingredients: item.dish.ingredients,
-        seasoning: item.dish.seasoning,
-        steps: item.dish.steps,
-      }))
-    })
+    const dishIds = (items || []).flatMap(item => 
+      Array(item.quantity).fill(item.dish_id)
+    )
 
-    const record: DeliciousRecord = {
-      id: Date.now().toString(),
-      date: new Date(),
-      dishes,
-      totalCalories: order.totalCalories,
+    const { data: record } = await this.client
+      .from('delicious_records')
+      .insert({
+        date: new Date().toISOString(),
+        total_calories: order.total_calories,
+        dish_ids: dishIds,
+      })
+      .select()
+      .single()
+
+    return {
+      order: {
+        ...updatedOrder,
+        items: (items || []).map(item => ({
+          dish: {
+            id: item.dish_id,
+            name: item.dish_name,
+            images: item.dish_image ? [item.dish_image] : [],
+          },
+          quantity: item.quantity,
+        })),
+      },
+      record,
     }
-
-    records.set(record.id, record)
-
-    return { order, record }
   }
 
   /**
    * 获取美味记录列表
    */
-  async getRecords(): Promise<DeliciousRecord[]> {
-    const result = Array.from(records.values())
-    // 按日期倒序排列
-    return result.sort((a, b) => b.date.getTime() - a.date.getTime())
+  async getRecords(): Promise<any[]> {
+    const { data, error } = await this.client
+      .from('delicious_records')
+      .select('*')
+      .order('date', { ascending: false })
+
+    if (error) {
+      console.error('查询美味记录失败:', error)
+      return []
+    }
+
+    return data || []
   }
 
   /**
    * 获取单个订单
    */
-  async findOne(id: string): Promise<Order | null> {
-    const order = orders.get(id)
-    if (!order) return null
-    
+  async findOne(id: string): Promise<any | null> {
+    const { data: order, error } = await this.client
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !order) return null
+
+    // 获取订单项
+    const { data: items } = await this.client
+      .from('order_items')
+      .select('*')
+      .eq('order_id', id)
+
     return {
       ...order,
-      mergedIngredients: this.mergeIngredients(order.items),
-      mergedSeasoning: this.mergeSeasoning(order.items),
+      items: (items || []).map(item => ({
+        dish: {
+          id: item.dish_id,
+          name: item.dish_name,
+          images: item.dish_image ? [item.dish_image] : [],
+        },
+        quantity: item.quantity,
+      })),
+      mergedIngredients: order.merged_ingredients || [],
+      mergedSeasoning: order.merged_seasoning || [],
     }
   }
 
   /**
    * 更新订单菜品列表
    */
-  async updateItems(id: string, items: OrderItem[]): Promise<Order | null> {
-    const order = orders.get(id)
+  async updateItems(id: string, items: { dish: DishInfo; quantity: number }[]): Promise<any | null> {
+    const { data: order } = await this.client
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single()
+
     if (!order) return null
 
     const totalCalories = items.reduce((sum, item) => {
       return sum + item.dish.calories * item.quantity
     }, 0)
 
-    order.items = items
-    order.totalCalories = totalCalories
-    order.mergedIngredients = this.mergeIngredients(items)
-    order.mergedSeasoning = this.mergeSeasoning(items)
+    const mergedIngredients = this.mergeIngredients(items)
+    const mergedSeasoning = this.mergeSeasoning(items)
 
-    orders.set(id, order)
-    return order
+    // 更新订单
+    await this.client
+      .from('orders')
+      .update({
+        total_calories: totalCalories,
+        merged_ingredients: mergedIngredients,
+        merged_seasoning: mergedSeasoning,
+      })
+      .eq('id', id)
+
+    // 删除旧订单项
+    await this.client
+      .from('order_items')
+      .delete()
+      .eq('order_id', id)
+
+    // 插入新订单项
+    const orderItems = items.map(item => ({
+      order_id: id,
+      dish_id: item.dish.id,
+      dish_name: item.dish.name,
+      dish_image: item.dish.images?.[0] || '',
+      quantity: item.quantity,
+    }))
+
+    await this.client
+      .from('order_items')
+      .insert(orderItems)
+
+    return this.findOne(id)
   }
 
   /**
    * 删除订单中的某个菜品
    */
-  async removeItem(orderId: string, dishId: string): Promise<Order | null> {
-    const order = orders.get(orderId)
+  async removeItem(orderId: string, dishId: string): Promise<any | null> {
+    const order = await this.findOne(orderId)
     if (!order) return null
 
-    const newItems = order.items.filter(item => item.dish.id !== dishId)
+    const newItems = order.items.filter((item: any) => item.dish.id !== dishId)
     if (newItems.length === order.items.length) {
-      // 没有删除任何项，说明菜品不存在
       return null
     }
 
@@ -232,18 +347,15 @@ export class OrderService {
   /**
    * 向订单添加菜品
    */
-  async addItem(orderId: string, dish: DishInfo, quantity: number): Promise<Order | null> {
-    const order = orders.get(orderId)
+  async addItem(orderId: string, dish: DishInfo, quantity: number): Promise<any | null> {
+    const order = await this.findOne(orderId)
     if (!order) return null
 
-    // 检查是否已存在该菜品
-    const existingIndex = order.items.findIndex(item => item.dish.id === dish.id)
+    const existingIndex = order.items.findIndex((item: any) => item.dish.id === dish.id)
     
     if (existingIndex >= 0) {
-      // 已存在，增加数量
       order.items[existingIndex].quantity += quantity
     } else {
-      // 不存在，添加新菜品
       order.items.push({ dish, quantity })
     }
 

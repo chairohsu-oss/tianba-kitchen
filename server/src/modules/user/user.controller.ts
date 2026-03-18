@@ -96,10 +96,12 @@ export class UserController {
       }
     }
     
+    // 数据库返回的是 snake_case 字段
+    const userAny = user as any
     const updatedUser = await this.userService.createOrUpdate({
-      wechatId: user.wechatId,
-      nickname: body.nickname || user.nickname,
-      avatarUrl: body.avatarUrl || user.avatarUrl,
+      wechatId: userAny.wechat_id || 'default_wechat',
+      nickname: body.nickname || user.nickname || '默认用户',
+      avatarUrl: body.avatarUrl || userAny.avatar_url || undefined,
     })
     
     return {
