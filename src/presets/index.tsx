@@ -169,7 +169,7 @@ export const Preset = ({ children }: PropsWithChildren) => {
           <View className="px-6 py-4 bg-gray-50">
             <Text className="block text-xs text-gray-400 text-center">
               验证码由家庭管理员提供{'\n'}
-              验证后可获得下单、修改订单等权限
+              验证后可获得点菜、修改菜单等权限
             </Text>
           </View>
         </View>

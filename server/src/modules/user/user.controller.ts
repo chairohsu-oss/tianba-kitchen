@@ -12,7 +12,7 @@ export class UserController {
   @Get('me')
   async getCurrentUser() {
     // 模拟返回默认用户（实际应从微信登录获取）
-    // 默认返回一个下单员角色的用户，方便测试
+    // 默认返回一个点菜员角色的用户，方便测试
     const user = await this.userService.findOne('default_user')
     return {
       code: 200,

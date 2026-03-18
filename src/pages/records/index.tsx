@@ -24,7 +24,7 @@ interface DishInfo {
   steps?: string[]
 }
 
-// 订单类型
+// 菜单类型
 interface Order {
   id: string
   items: {
@@ -52,7 +52,7 @@ interface DeliciousRecord {
 const roleMap: Record<string, string> = {
   'head_chef': '厨师长',
   'sous_chef': '领班',
-  'order_clerk': '下单员',
+  'order_clerk': '点菜员',
   'guest': '客人',
 }
 
@@ -94,7 +94,7 @@ const RecordsPage: FC = () => {
         setCurrentUser(userData)
       }
 
-      // 获取待确认订单
+      // 获取待确认菜单
       const ordersResult = await Network.request({
         url: '/api/orders',
         data: { status: 'pending' }
@@ -115,12 +115,12 @@ const RecordsPage: FC = () => {
     }
   }
 
-  // 检查用户是否有权限操作订单
+  // 检查用户是否有权限操作菜单
   const canModifyOrder = () => {
     return currentUser && privilegedRoles.includes(currentUser.role)
   }
 
-  // 确认订单
+  // 确认菜单
   const confirmOrder = async (orderId: string) => {
     try {
       await Network.request({
@@ -136,7 +136,7 @@ const RecordsPage: FC = () => {
     }
   }
 
-  // 删除订单中的菜品
+  // 删除菜单中的菜品
   const removeDishFromOrder = async (orderId: string, dishId: string) => {
     if (!canModifyOrder()) {
       Taro.showToast({ title: '无权限操作', icon: 'none' })
@@ -151,7 +151,7 @@ const RecordsPage: FC = () => {
       if ((result as any).data?.code === 200) {
         Taro.showToast({ title: '已删除', icon: 'success' })
         fetchData()
-        // 更新选中订单
+        // 更新选中菜单
         if (selectedOrder && selectedOrder.id === orderId) {
           const updatedOrder = (result as any).data?.data
           if (updatedOrder && updatedOrder.items.length > 0) {
@@ -199,7 +199,7 @@ const RecordsPage: FC = () => {
         data: { items: newItems }
       })
       fetchData()
-      // 更新选中订单
+      // 更新选中菜单
       if (selectedOrder && selectedOrder.id === orderId) {
         setSelectedOrder({
           ...selectedOrder,
@@ -246,7 +246,7 @@ const RecordsPage: FC = () => {
     return 'https://picsum.photos/200?random=' + dish.id
   }
 
-  // 查看订单详情
+  // 查看菜单详情
   const viewOrderDetail = (order: Order) => {
     setSelectedOrder(order)
   }
@@ -299,12 +299,12 @@ const RecordsPage: FC = () => {
         )}
       </View>
 
-      {/* 顶部待确认订单区域 */}
+      {/* 顶部待确认菜单区域 */}
       <View className="bg-white mb-2">
         <View className="px-4 py-3 border-b border-gray-100">
           <View className="flex flex-row items-center gap-2">
             <Clock size={18} color="#F97316" />
-            <Text className="text-base font-semibold text-gray-800">待确认订单</Text>
+            <Text className="text-base font-semibold text-gray-800">待确认菜单</Text>
             {pendingOrders.length > 0 && (
               <View className="px-2 py-0.5 bg-orange-100 rounded-full">
                 <Text className="text-xs text-orange-600">{pendingOrders.length}</Text>
@@ -316,7 +316,7 @@ const RecordsPage: FC = () => {
         {pendingOrders.length === 0 ? (
           <View className="flex flex-col items-center justify-center py-8">
             <ChefHat size={32} color="#D1D5DB" />
-            <Text className="text-sm text-gray-400 mt-2">暂无待确认订单</Text>
+            <Text className="text-sm text-gray-400 mt-2">暂无待确认菜单</Text>
           </View>
         ) : (
           <ScrollView scrollX className="px-4 py-3">
@@ -446,7 +446,7 @@ const RecordsPage: FC = () => {
           <View className="flex flex-col items-center justify-center py-16">
             <Text className="text-4xl mb-4">🍽️</Text>
             <Text className="text-gray-400">暂无美味记录</Text>
-            <Text className="text-xs text-gray-300 mt-1">确认订单后会在这里显示</Text>
+            <Text className="text-xs text-gray-300 mt-1">确认菜单后会在这里显示</Text>
           </View>
         ) : (
           <ScrollView scrollY className="flex-1">
@@ -495,7 +495,7 @@ const RecordsPage: FC = () => {
         )}
       </View>
 
-      {/* 订单详情弹窗 */}
+      {/* 菜单详情弹窗 */}
       {selectedOrder && (
         <View 
           className="fixed inset-0 z-50 flex items-center justify-center"
@@ -508,7 +508,7 @@ const RecordsPage: FC = () => {
           >
             {/* 标题栏 */}
             <View className="flex flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
-              <Text className="text-base font-semibold text-gray-800">订单详情</Text>
+              <Text className="text-base font-semibold text-gray-800">菜单详情</Text>
               <View onClick={() => setSelectedOrder(null)}>
                 <X size={20} color="#9CA3AF" />
               </View>

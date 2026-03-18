@@ -53,7 +53,7 @@
             🔐 验证管理
           </button>
           <button onclick="switchTab('orders')" id="tab-orders" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">
-            📋 订单管理
+            📋 菜单管理
           </button>
         </div>
       </div>
@@ -153,7 +153,7 @@
             <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-xl">📝</div>
             <div>
               <div class="text-2xl font-bold text-gray-800" id="count-order_clerk">0</div>
-              <div class="text-sm text-gray-500">下单员</div>
+              <div class="text-sm text-gray-500">点菜员</div>
             </div>
           </div>
         </div>
@@ -209,7 +209,7 @@
           <div>
             <h3 class="font-semibold text-gray-800 mb-1">验证码管理</h3>
             <p class="text-sm text-gray-600">验证码用于控制小程序访问权限，只有输入正确验证码的用户才能使用完整功能。</p>
-            <p class="text-sm text-gray-600 mt-1">新用户默认为「客人」角色，验证后自动升级为「下单员」。</p>
+            <p class="text-sm text-gray-600 mt-1">新用户默认为「客人」角色，验证后自动升级为「点菜员」。</p>
           </div>
         </div>
       </div>
@@ -277,9 +277,9 @@
       </div>
     </div>
 
-    <!-- 订单管理内容 -->
+    <!-- 菜单管理内容 -->
     <div id="content-orders" class="max-w-7xl mx-auto px-4 py-4 hidden">
-      <!-- 订单筛选 -->
+      <!-- 菜单筛选 -->
       <div class="bg-white rounded-xl p-4 shadow-sm mb-4 flex gap-4">
         <select id="filter-order-status" onchange="loadOrders()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
           <option value="">全部状态</option>
@@ -289,12 +289,12 @@
         <button onclick="loadOrders()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">刷新</button>
       </div>
 
-      <!-- 订单列表 -->
+      <!-- 菜单列表 -->
       <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">订单ID</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">菜单ID</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">下单用户</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">菜品</th>
               <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">总热量</th>
@@ -444,7 +444,7 @@
           <select id="edit-user-role" class="w-full border border-gray-200 rounded-lg px-3 py-2">
             <option value="head_chef">👨‍🍳 厨师长 - 全部权限</option>
             <option value="sous_chef">🧑‍🍳 领班 - 全部权限</option>
-            <option value="order_clerk">📝 下单员 - 下单、修改订单、上传菜品</option>
+            <option value="order_clerk">📝 点菜员 - 点菜、修改菜单、上传菜品</option>
             <option value="guest">👤 客人 - 无权限</option>
           </select>
         </div>
@@ -459,11 +459,11 @@
       </div>
     </div>
 
-    <!-- 订单详情弹窗 -->
+    <!-- 菜单详情弹窗 -->
     <div id="order-detail-modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
       <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 class="text-lg font-semibold text-gray-800">订单详情</h3>
+          <h3 class="text-lg font-semibold text-gray-800">菜单详情</h3>
           <button onclick="closeOrderDetailModal()" class="text-gray-400 hover:text-gray-600">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
@@ -508,13 +508,13 @@
     const roleMap = {
       'head_chef': '厨师长',
       'sous_chef': '领班',
-      'order_clerk': '下单员',
+      'order_clerk': '点菜员',
       'guest': '客人'
     }
     const rolePermissions = {
-      'head_chef': ['下单', '修改订单', '确认订单', '上传菜品', '管理用户'],
-      'sous_chef': ['下单', '修改订单', '确认订单', '上传菜品', '管理用户'],
-      'order_clerk': ['下单', '修改订单', '上传菜品'],
+      'head_chef': ['点菜', '修改菜单', '确认菜单', '上传菜品', '管理用户'],
+      'sous_chef': ['点菜', '修改菜单', '确认菜单', '上传菜品', '管理用户'],
+      'order_clerk': ['点菜', '修改菜单', '上传菜品'],
       'guest': []
     }
 
@@ -577,7 +577,7 @@
       }
     }
 
-    // 加载订单列表
+    // 加载菜单列表
     async function loadOrders() {
       const status = document.getElementById('filter-order-status').value
       const params = new URLSearchParams()
@@ -589,7 +589,7 @@
         orders = result.data || []
         renderOrders()
       } catch (error) {
-        console.error('加载订单失败:', error)
+        console.error('加载菜单失败:', error)
         document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-red-400">加载失败</td></tr>'
       }
     }
@@ -682,12 +682,12 @@
       `).join('')
     }
 
-    // 渲染订单列表
+    // 渲染菜单列表
     function renderOrders() {
       const tbody = document.getElementById('orders-tbody')
       
       if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无订单数据</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无菜单数据</td></tr>'
         return
       }
 
@@ -1008,14 +1008,14 @@
       }
     }
 
-    // 查看订单详情
+    // 查看菜单详情
     function viewOrderDetail(orderId) {
       const order = orders.find(o => o.id === orderId)
       if (!order) return
 
       const content = `
         <div class="mb-4">
-          <div class="text-sm text-gray-500 mb-2">订单ID: ${order.id}</div>
+          <div class="text-sm text-gray-500 mb-2">菜单ID: ${order.id}</div>
           <div class="flex items-center gap-2 mb-2">
             <img src="${order.user?.avatarUrl || 'https://via.placeholder.com/32'}" class="w-8 h-8 rounded-full">
             <span class="font-medium">${order.user?.nickname || '未知用户'}</span>

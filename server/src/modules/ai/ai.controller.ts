@@ -96,7 +96,7 @@ export class AiController {
   }
 
   /**
-   * AI生成菜品（录入菜品页面使用）
+   * 自动生成菜品（录入菜品页面使用）
    */
   @Post('generate-dish')
   @HttpCode(HttpStatus.OK)
@@ -109,7 +109,7 @@ export class AiController {
       images?: string[]
     },
   ) {
-    console.log('AI生成菜品 - 菜名:', body.name, '分类:', body.category, '菜系:', body.cuisine)
+    console.log('自动生成菜品 - 菜名:', body.name, '分类:', body.category, '菜系:', body.cuisine)
 
     if (!body.name) {
       return {

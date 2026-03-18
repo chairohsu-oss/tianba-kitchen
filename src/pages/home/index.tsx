@@ -210,7 +210,7 @@ const HomePage: FC = () => {
     }
   }
 
-  // 添加菜品到待确认订单
+  // 添加菜品到待确认菜单
   const addDishToOrder = async (dish: RecommendedDish) => {
     try {
       // 获取当前用户信息
@@ -222,7 +222,7 @@ const HomePage: FC = () => {
         console.log('获取用户信息失败')
       }
 
-      // 获取待确认订单
+      // 获取待确认菜单
       const ordersResult = await Network.request({
         url: '/api/orders',
         data: { status: 'pending' }
@@ -230,7 +230,7 @@ const HomePage: FC = () => {
       const pendingOrders = (ordersResult as any).data?.data || []
 
       if (pendingOrders.length > 0) {
-        // 已有待确认订单，添加菜品
+        // 已有待确认菜单，添加菜品
         const orderId = pendingOrders[0].id
         await Network.request({
           url: `/api/orders/${orderId}/items`,
@@ -245,9 +245,9 @@ const HomePage: FC = () => {
             quantity: 1
           }
         })
-        Taro.showToast({ title: `已添加「${dish.name}」到待确认订单`, icon: 'success' })
+        Taro.showToast({ title: `已添加「${dish.name}」到待确认菜单`, icon: 'success' })
       } else {
-        // 没有待确认订单，创建新订单
+        // 没有待确认菜单，创建新菜单
         await Network.request({
           url: '/api/orders',
           method: 'POST',
@@ -268,19 +268,19 @@ const HomePage: FC = () => {
             } : undefined,
           }
         })
-        Taro.showToast({ title: `已下单「${dish.name}」`, icon: 'success' })
+        Taro.showToast({ title: `已点菜「${dish.name}」`, icon: 'success' })
       }
     } catch (error) {
-      console.error('下单失败', error)
-      Taro.showToast({ title: '下单失败', icon: 'none' })
+      console.error('点菜失败', error)
+      Taro.showToast({ title: '点菜失败', icon: 'none' })
     }
   }
 
-  // 批量添加菜品到订单
+  // 批量添加菜品到菜单
   const addAllDishesToOrder = async (dishes: RecommendedDish[]) => {
     Taro.showModal({
-      title: '确认下单',
-      content: `将添加 ${dishes.length} 道菜到待确认订单`,
+      title: '确认点菜',
+      content: `将添加 ${dishes.length} 道菜到待确认菜单`,
       success: async (res) => {
         if (res.confirm) {
           for (const dish of dishes) {

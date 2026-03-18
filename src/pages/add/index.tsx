@@ -285,7 +285,7 @@ const AddDishPage: FC = () => {
     }
   }
 
-  // E模块：AI生成菜品
+  // E模块：自动生成菜品
   const generateDish = async () => {
     if (!dishName.trim()) {
       Taro.showToast({ title: '请输入菜名', icon: 'none' })
@@ -300,7 +300,7 @@ const AddDishPage: FC = () => {
         .map(m => m.content)
         .join('\n')
 
-      console.log('AI生成菜品请求:', {
+      console.log('自动生成菜品请求:', {
         name: dishName,
         category: CATEGORIES[categoryIndex].id,
         cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
@@ -709,7 +709,7 @@ const AddDishPage: FC = () => {
           </Text>
         )}
 
-        {/* E模块：AI生成菜品按钮 */}
+        {/* E模块：自动生成菜品按钮 */}
         <View
           className={`rounded-full py-3 flex flex-row items-center justify-center ${isGenerating ? 'bg-gray-400' : 'bg-gray-800'}`}
           onClick={isGenerating ? undefined : generateDish}
@@ -717,12 +717,12 @@ const AddDishPage: FC = () => {
           {isGenerating ? (
             <>
               <Loader size={18} color="#fff" className="animate-spin" />
-              <Text className="text-white font-medium ml-2">AI 生成中...</Text>
+              <Text className="text-white font-medium ml-2">生成中...</Text>
             </>
           ) : (
             <>
               <Sparkles size={18} color="#fff" />
-              <Text className="text-white font-medium ml-2">AI 生成菜品</Text>
+              <Text className="text-white font-medium ml-2">自动生成菜品</Text>
             </>
           )}
         </View>

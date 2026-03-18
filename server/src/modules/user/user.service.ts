@@ -9,7 +9,7 @@ export type { User, VerificationCode }
 export enum UserRole {
   HEAD_CHEF = 'head_chef',      // 厨师长 - 全部权限
   SOUS_CHEF = 'sous_chef',      // 领班 - 全部权限
-  ORDER_CLERK = 'order_clerk',  // 下单员 - 下单、修改订单、上传菜品
+  ORDER_CLERK = 'order_clerk',  // 点菜员 - 点菜、修改菜单、上传菜品
   GUEST = 'guest',              // 客人 - 无权限
 }
 
@@ -50,7 +50,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.HEAD_CHEF]: '厨师长',
   [UserRole.SOUS_CHEF]: '领班',
-  [UserRole.ORDER_CLERK]: '下单员',
+  [UserRole.ORDER_CLERK]: '点菜员',
   [UserRole.GUEST]: '客人',
 }
 

@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Plus, Minus, ShoppingCart, Trash2 } from 'lucide-react-taro'
+import { Plus, Minus, Soup, Trash2 } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -136,7 +136,7 @@ const DishesPage: FC = () => {
     return cartItem ? cartItem.quantity : 0
   }
 
-  // 选择模式：添加菜品到订单
+  // 选择模式：添加菜品到菜单
   const addDishToOrder = async (dish: Dish) => {
     if (!targetOrderId) return
     
@@ -166,10 +166,10 @@ const DishesPage: FC = () => {
     }
   }
 
-  // 添加到购物车（或选择模式直接添加到订单）
+  // 添加到购物车（或选择模式直接添加到菜单）
   const addToCart = (dish: Dish) => {
     if (selectMode && targetOrderId) {
-      // 选择模式：直接添加到订单
+      // 选择模式：直接添加到菜单
       addDishToOrder(dish)
       return
     }
@@ -218,7 +218,7 @@ const DishesPage: FC = () => {
     return cart.reduce((total, item) => total + item.quantity, 0)
   }
 
-  // 提交订单
+  // 提交菜单
   const submitOrder = async () => {
     if (cart.length === 0) {
       Taro.showToast({ title: '购物车是空的', icon: 'none' })
@@ -437,7 +437,7 @@ const DishesPage: FC = () => {
           <View className="flex flex-row items-center justify-between">
             <View className="flex flex-row items-center gap-2">
               <Text className="text-sm text-gray-600">选择模式</Text>
-              <Text className="text-xs text-gray-400">点击菜品添加到订单</Text>
+              <Text className="text-xs text-gray-400">点击菜品添加到菜单</Text>
             </View>
             <View
               className="px-8 py-3 rounded-full bg-blue-500"
@@ -449,17 +449,57 @@ const DishesPage: FC = () => {
         ) : (
           /* 正常模式：购物车 */
           <View className="flex flex-row items-center justify-between">
-            {/* 购物车图标 */}
+            {/* 大碗容器 */}
             <View 
               className="relative"
               onClick={() => setShowCart(!showCart)}
             >
-              <View className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
-                <ShoppingCart size={22} color="#fff" />
+              {/* 大碗背景 */}
+              <View 
+                className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden"
+                style={{ 
+                  background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                }}
+              >
+                <Soup size={28} color="#fff" />
+                
+                {/* 碗中的菜品缩略图堆叠效果 */}
+                {cart.length > 0 && (
+                  <View className="absolute inset-0 flex items-center justify-center">
+                    {cart.slice(0, 3).map((item, index) => (
+                      <Image
+                        key={item.dish.id}
+                        className="absolute rounded-full"
+                        style={{ 
+                          width: '20px', 
+                          height: '20px',
+                          top: `${4 + index * 2}px`,
+                          left: `${4 + index * 3}px`,
+                          zIndex: 3 - index,
+                          borderWidth: '1px',
+                          borderColor: '#fff'
+                        }}
+                        src={getDishImage(item.dish)}
+                        mode="aspectFill"
+                      />
+                    ))}
+                  </View>
+                )}
               </View>
+              
+              {/* 数量徽章 */}
               {getTotalQuantity() > 0 && (
-                <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                  <Text className="text-xs text-white font-medium">
+                <View 
+                  className="absolute -top-1 -right-1 flex items-center justify-center"
+                  style={{ 
+                    minWidth: '20px', 
+                    height: '20px',
+                    borderRadius: '10px',
+                    backgroundColor: '#EF4444'
+                  }}
+                >
+                  <Text className="text-xs text-white font-medium" style={{ paddingLeft: '4px', paddingRight: '4px' }}>
                     {getTotalQuantity()}
                   </Text>
                 </View>

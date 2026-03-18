@@ -334,7 +334,7 @@ ${input.name ? `菜名：${input.name}` : '请根据食材推断菜名'}
   }
 
   /**
-   * AI生成菜品（录入菜品页面使用）
+   * 自动生成菜品（录入菜品页面使用）
    * 根据用户输入的菜名、分类、补充说明，自动整理食材、配料、烹饪步骤，计算营养信息
    */
   async generateDish(input: {
@@ -401,14 +401,14 @@ ${input.userInputs || '（用户未提供详细信息，请根据菜名推断）
 只返回JSON，不要有任何其他文字。`
 
     try {
-      console.log('AI生成菜品请求:', { name: input.name, category: categoryName, cuisine: cuisineName })
+      console.log('自动生成菜品请求:', { name: input.name, category: categoryName, cuisine: cuisineName })
       
       const response = await this.llmClient.invoke([
         { role: 'system', content: '你是一个专业的菜谱生成助手，只返回JSON格式的数据。' },
         { role: 'user', content: prompt }
       ], { temperature: 0.7 })
 
-      console.log('AI生成菜品响应:', response.content.substring(0, 300))
+      console.log('自动生成菜品响应:', response.content.substring(0, 300))
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
@@ -429,7 +429,7 @@ ${input.userInputs || '（用户未提供详细信息，请根据菜名推断）
 
       return this.getDefaultDishData(input.name)
     } catch (error) {
-      console.error('AI生成菜品失败:', error)
+      console.error('自动生成菜品失败:', error)
       return this.getDefaultDishData(input.name)
     }
   }
