@@ -135,9 +135,6 @@ const AddDishPage: FC = () => {
         // 添加到补充说明图片列表
         setSupplementImages(prev => [...prev, imagePath])
         
-        // 显示用户上传的图片消息
-        addMessage('user', `[图片]`)
-        
         // 上传图片并调用AI识别
         try {
           // 上传图片到服务器
@@ -150,26 +147,46 @@ const AddDishPage: FC = () => {
           const imageUrl = (uploadResult as any).data?.data?.url || (uploadResult as any).data?.url
           console.log('图片上传成功:', imageUrl)
           
-          // 调用AI识别图片
+          if (!imageUrl) {
+            Taro.showToast({ title: '图片上传失败', icon: 'none' })
+            return
+          }
+          
+          // 显示用户上传的图片消息
+          addMessage('user', '📸 [上传了一张图片]')
+          
+          // 调用AI识别图片 - 使用正确的格式
           Taro.showLoading({ title: 'AI识别中...' })
+          
+          // 构建包含图片的消息格式
+          const chatMessages = [
+            {
+              role: 'user' as const,
+              content: '请识别这张图片中的食材和菜品信息，告诉我：1. 这是什么食材或菜品？2. 推荐的烹饪方式？3. 估算的热量？',
+              images: [imageUrl]
+            }
+          ]
+          
           const aiResult = await Network.request({
             url: '/api/ai/chat',
             method: 'POST',
-            data: {
-              message: '请识别这张图片中的食材和菜品信息',
-              imageUrl
-            }
+            data: { messages: chatMessages }
           })
+          
           Taro.hideLoading()
           
-          const aiResponse = (aiResult as any).data?.data?.response || (aiResult as any).data?.response
+          const aiResponse = (aiResult as any).data?.data?.reply || (aiResult as any).data?.reply
+          console.log('AI识别响应:', aiResponse)
+          
           if (aiResponse) {
             addMessage('assistant', aiResponse)
+          } else {
+            addMessage('assistant', '抱歉，无法识别图片内容，请手动输入食材信息。')
           }
         } catch (error) {
           Taro.hideLoading()
           console.error('图片识别失败', error)
-          addMessage('assistant', '图片识别失败，请重试')
+          addMessage('assistant', '图片识别失败，请手动输入食材信息。')
         }
       }
     })
