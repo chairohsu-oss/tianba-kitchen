@@ -509,20 +509,22 @@ const HomePage: FC = () => {
         {/* 对话区域 - 可自由滚动 */}
         <ScrollView 
           scrollY 
-          className="flex-1 px-4"
+          className="flex-1"
           scrollIntoView={scrollViewRef.current}
           scrollWithAnimation
           style={{ 
             height: 'calc(100vh - 240px)',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            paddingLeft: '16px',
+            paddingRight: '16px'
           }}
         >
           {/* 对话消息列表 */}
           {messages.map(msg => (
             <View key={msg.id} id={`msg-${msg.id}`} className="mb-4 mt-2">
               {msg.role === 'user' ? (
-                <View className="flex flex-row justify-end items-start gap-2">
-                  <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" style={{ maxWidth: '75%' }}>
+                <View className="flex flex-row justify-end items-start" style={{ gap: '8px' }}>
+                  <View className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" style={{ maxWidth: 'calc(100% - 48px)' }}>
                     {/* 用户图片 */}
                     {msg.images && msg.images.length > 0 && (
                       <View className="flex flex-row flex-wrap gap-2 mb-2">
@@ -540,7 +542,7 @@ const HomePage: FC = () => {
                       <Text className="text-white text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</Text>
                     )}
                   </View>
-                  <View className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <View style={{ width: '32px', height: '32px', flexShrink: 0 }} className="rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                     <User size={16} color="#6B7280" />
                   </View>
                 </View>
