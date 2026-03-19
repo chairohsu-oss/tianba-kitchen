@@ -264,6 +264,35 @@ export class UserController {
   }
 
   /**
+   * 删除用户
+   */
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string) {
+    // 不允许删除默认用户
+    if (id === 'default_user') {
+      return {
+        code: 400,
+        msg: '不能删除默认用户',
+        data: null,
+      }
+    }
+
+    const success = await this.userService.deleteUser(id)
+    if (!success) {
+      return {
+        code: 404,
+        msg: '用户不存在',
+        data: null,
+      }
+    }
+    return {
+      code: 200,
+      msg: '删除成功',
+      data: null,
+    }
+  }
+
+  /**
    * 重置用户验证状态
    */
   @Post(':id/reset-verification')

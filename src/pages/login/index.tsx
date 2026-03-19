@@ -176,49 +176,44 @@ const LoginPage: FC = () => {
         
         {/* 小程序端：用户信息填写区域 */}
         {isWeapp && (
-          <View className="mb-4">
+          <View className="user-info-section">
             {/* 头像选择 */}
-            <View className="flex flex-row items-center justify-center mb-3">
+            <View className="avatar-container">
               <Button
                 className="p-0 m-0 bg-transparent border-0"
-                style={{ background: 'transparent', border: 'none', padding: 0, margin: 0 }}
+                style={{ background: 'transparent', border: 'none', padding: 0, margin: 0, width: '96px', height: '96px' }}
                 openType="chooseAvatar"
                 onChooseAvatar={handleChooseAvatar}
               >
-                <View className="relative">
+                <View className="avatar-wrapper">
                   <Image
-                    className="w-20 h-20 rounded-full"
+                    className="avatar-image"
                     src={avatarUrl || DEFAULT_AVATAR}
                     mode="aspectFill"
                   />
                   {/* 编辑图标 */}
-                  <View 
-                    className="absolute bottom-0 right-0 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center"
-                    style={{ borderWidth: 2, borderColor: '#fff' }}
-                  >
-                    <Camera size={12} color="#fff" />
+                  <View className="avatar-edit-icon">
+                    <Camera size={16} color="#fff" />
                   </View>
                 </View>
               </Button>
             </View>
             
             {/* 昵称输入 */}
-            <View 
-              className="flex flex-row items-center justify-center gap-2 p-3 bg-gray-50 rounded-xl mx-2"
-            >
-              <Text className="text-sm text-gray-500">昵称：</Text>
+            <View className="nickname-container">
+              <Text className="nickname-label">昵称</Text>
               <Input
-                className="flex-1 text-sm"
+                className="nickname-input"
                 type="nickname"
-                placeholder="请输入昵称"
+                placeholder="请输入您的昵称"
                 value={nickname}
                 onInput={handleNicknameInput}
                 maxlength={20}
               />
             </View>
             
-            <Text className="text-xs text-gray-400 text-center mt-2">
-              可选：设置头像和昵称后，将展示在美味记录中
+            <Text className="user-hint">
+              设置头像和昵称后，将展示在美味记录中
             </Text>
           </View>
         )}

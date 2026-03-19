@@ -468,6 +468,23 @@ export class UserService implements OnModuleInit {
   }
 
   /**
+   * 删除用户
+   */
+  async deleteUser(userId: string): Promise<boolean> {
+    // 不允许删除默认用户
+    if (userId === 'default_user') {
+      return false
+    }
+
+    const { error } = await this.client
+      .from('users')
+      .delete()
+      .eq('id', userId)
+
+    return !error
+  }
+
+  /**
    * 更新用户等级
    */
   async updateRole(id: string, role: UserRole): Promise<User | null> {

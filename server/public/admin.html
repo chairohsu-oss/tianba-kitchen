@@ -686,7 +686,8 @@
             <td class="px-4 py-3">
               <button onclick="openUserRoleModal('${user.id}')" class="text-orange-500 hover:text-orange-700 text-sm mr-2">修改角色</button>
               ${!verified ? `<button onclick="verifyUser('${user.id}')" class="text-green-500 hover:text-green-700 text-sm mr-2">验证通过</button>` : ''}
-              ${verified ? `<button onclick="resetUserVerification('${user.id}')" class="text-red-500 hover:text-red-700 text-sm">重置验证</button>` : ''}
+              ${verified ? `<button onclick="resetUserVerification('${user.id}')" class="text-blue-500 hover:text-blue-700 text-sm mr-2">重置验证</button>` : ''}
+              ${user.id !== 'default_user' ? `<button onclick="deleteUser('${user.id}')" class="text-red-500 hover:text-red-700 text-sm">删除</button>` : ''}
             </td>
           </tr>
         `
@@ -877,6 +878,28 @@
       } catch (error) {
         console.error('验证失败:', error)
         alert('验证失败')
+      }
+    }
+
+    // 删除用户
+    async function deleteUser(userId) {
+      if (!confirm('确定要删除该用户吗？此操作不可恢复。')) return
+
+      try {
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+          method: 'DELETE'
+        })
+        
+        const result = await response.json()
+        if (result.code === 200) {
+          loadUsers()
+          alert('删除成功')
+        } else {
+          alert('删除失败: ' + result.msg)
+        }
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
       }
     }
 
