@@ -5,22 +5,17 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   
-  <!-- 核心Viewport设置 - 禁用缩放和双击缩放 -->
+  <!-- 核心Viewport设置 -->
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   
   <!-- iOS PWA 核心设置 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="天霸私厨">
-  <meta name="apple-touch-fullscreen" content="yes">
   <meta name="format-detection" content="telephone=no,address=no,email=no">
-  
-  <!-- 禁用各种iOS默认行为 -->
-  <meta name="apple-mobile-web-app-orientations" content="portrait">
   
   <!-- 主题色 -->
   <meta name="theme-color" content="#ffffff">
-  <meta name="msapplication-navbutton-color" content="#ffffff">
   
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
@@ -31,144 +26,89 @@
   <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
   <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png">
   <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-128.png">
-  <link rel="apple-touch-icon" sizes="114x114" href="/icons/icon-128.png">
-  <link rel="apple-touch-icon" sizes="76x76" href="/icons/icon-96.png">
-  <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72.png">
   
-  <!-- iOS Splash Screens - iPhone 14 Pro Max -->
+  <!-- iOS Splash Screens -->
   <link rel="apple-touch-startup-image" href="/splash/iphone14pro.png" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-  <!-- iPhone 14 Pro -->
   <link rel="apple-touch-startup-image" href="/splash/iphone14.png" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-  <!-- iPhone 14 -->
   <link rel="apple-touch-startup-image" href="/splash/iphone13.png" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-  <!-- iPhone 13 mini / 12 mini -->
   <link rel="apple-touch-startup-image" href="/splash/iphonemini.png" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-  <!-- iPhone 11 Pro X / XS -->
-  <link rel="apple-touch-startup-image" href="/splash/iphonex.png" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-  <!-- iPhone SE 2nd/3rd -->
   <link rel="apple-touch-startup-image" href="/splash/iphonese.png" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   
   <title>天霸私厨</title>
   <script><%= htmlWebpackPlugin.options.script %></script>
   
   <style>
-    /* 原生App体验优化 */
-    * {
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-    
-    html, body {
-      overscroll-behavior: none;
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { 
+      overscroll-behavior: none; 
       -webkit-overflow-scrolling: touch;
       touch-action: manipulation;
-      background-color: #ffffff;
-    }
-    
-    body {
       margin: 0;
       padding: 0;
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
     }
+    input, textarea { -webkit-user-select: text; user-select: text; }
     
-    /* 输入框允许选择文字 */
-    input, textarea {
-      -webkit-user-select: text;
-      user-select: text;
-    }
-    
-    /* 启动画面加载动画 */
     #app {
       min-height: 100vh;
       min-height: -webkit-fill-available;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+      background: linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%);
     }
     
-    @keyframes __app-loading-spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    @keyframes __app-loading-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    .__app-loading {
+    .loading-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 16px;
     }
     
-    .__app-loading-icon {
+    .loading-icon {
       width: 80px;
       height: 80px;
       background: white;
       border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-      animation: __app-loading-pulse 1.5s ease-in-out infinite;
     }
     
-    .__app-loading-text {
-      color: white;
+    .loading-text {
+      color: #1F2937;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 18px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
+      font-weight: 600;
     }
   </style>
 </head>
 
 <body>
   <div id="app">
-    <div class="__app-loading">
-      <div class="__app-loading-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="loading-container">
+      <div class="loading-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
           <line x1="6" y1="17" x2="18" y2="17"/>
         </svg>
       </div>
-      <span class="__app-loading-text">天霸私厨</span>
+      <span class="loading-text">天霸私厨</span>
     </div>
   </div>
   
-  <!-- 禁用双击缩放脚本 -->
   <script>
     // 禁用双击缩放
-    document.addEventListener('touchstart', function(e) {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
-    }, { passive: false });
-    
     var lastTouchEnd = 0;
     document.addEventListener('touchend', function(e) {
       var now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-      }
+      if (now - lastTouchEnd <= 300) e.preventDefault();
       lastTouchEnd = now;
     }, false);
     
-    // 禁用手势缩放
-    document.addEventListener('gesturestart', function(e) {
-      e.preventDefault();
-    });
-    
-    // 禁用双指缩放
+    document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
     document.addEventListener('touchmove', function(e) {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
+      if (e.touches.length > 1) e.preventDefault();
     }, { passive: false });
   </script>
 </body>
