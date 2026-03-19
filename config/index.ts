@@ -179,6 +179,23 @@ export default defineConfig<'vite'>(async (merge, _env) => {
                     });
                     console.log(`✓ Copied ${files.length} icon files`);
                   }
+                  
+                  // 复制 splash 目录
+                  const splashDir = path.join(publicDir, 'splash');
+                  const outSplashDir = path.join(outDir, 'splash');
+                  if (fs.existsSync(splashDir)) {
+                    if (!fs.existsSync(outSplashDir)) {
+                      fs.mkdirSync(outSplashDir, { recursive: true });
+                    }
+                    const splashFiles = fs.readdirSync(splashDir);
+                    splashFiles.forEach(file => {
+                      fs.copyFileSync(
+                        path.join(splashDir, file),
+                        path.join(outSplashDir, file)
+                      );
+                    });
+                    console.log(`✓ Copied ${splashFiles.length} splash files`);
+                  }
                 },
               },
             ]

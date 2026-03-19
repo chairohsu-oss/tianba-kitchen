@@ -5,62 +5,74 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1F2937",
-  "orientation": "portrait-primary",
+  "theme_color": "#ffffff",
+  "orientation": "portrait",
   "scope": "/",
   "lang": "zh-CN",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-72.png",
       "sizes": "72x72",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-96.png",
       "sizes": "96x96",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-128.png",
       "sizes": "128x128",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-144.png",
       "sizes": "144x144",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-152.png",
       "sizes": "152x152",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/icon-384.png",
       "sizes": "384x384",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["food", "lifestyle"],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "好帮手",
@@ -75,6 +87,15 @@
       "description": "浏览所有菜品",
       "url": "/pages/dishes/index",
       "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "录入菜品",
+      "short_name": "录入",
+      "description": "添加新菜品",
+      "url": "/pages/add/index",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     }
-  ]
+  ],
+  "related_applications": [],
+  "display_override": ["window-controls-overlay", "standalone", "browser"]
 }
