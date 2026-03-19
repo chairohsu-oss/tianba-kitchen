@@ -279,6 +279,30 @@ export class OrderService {
   }
 
   /**
+   * 删除美味记录（批量）
+   */
+  async deleteRecords(ids: string[]): Promise<{ success: boolean; deletedCount: number }> {
+    if (!ids || ids.length === 0) {
+      return { success: false, deletedCount: 0 }
+    }
+
+    const { error, count } = await this.client
+      .from('delicious_records')
+      .delete()
+      .in('id', ids)
+
+    if (error) {
+      console.error('删除美味记录失败:', error)
+      throw new Error('删除美味记录失败')
+    }
+
+    return { 
+      success: true, 
+      deletedCount: count || ids.length 
+    }
+  }
+
+  /**
    * 获取单个订单
    */
   async findOne(id: string): Promise<any | null> {

@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Check, Clock, Flame, Calendar, ChefHat, X, User, Plus, Minus, Trash2, LogOut } from 'lucide-react-taro'
+import { Check, Clock, Flame, Calendar, ChefHat, X, User, Plus, Minus, Trash2, LogOut, Settings } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 
@@ -72,6 +72,10 @@ const RecordsPage: FC = () => {
   const [records, setRecords] = useState<DeliciousRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  
+  // 批量管理模式
+  const [isManageMode, setIsManageMode] = useState(false)
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     // 检查登录状态
@@ -138,6 +142,11 @@ const RecordsPage: FC = () => {
     return currentUser && privilegedRoles.includes(currentUser.role)
   }
 
+  // 检查是否是厨师长
+  const isHeadChef = () => {
+    return currentUser?.role === 'head_chef'
+  }
+
   // 退出登录
   const handleLogout = () => {
     Taro.showModal({
@@ -153,6 +162,66 @@ const RecordsPage: FC = () => {
           
           // 跳转到登录页
           Taro.redirectTo({ url: '/pages/login/index' })
+        }
+      }
+    })
+  }
+
+  // 切换管理模式
+  const toggleManageMode = () => {
+    setIsManageMode(!isManageMode)
+    setSelectedRecordIds(new Set())
+  }
+
+  // 切换记录选择
+  const toggleRecordSelection = (recordId: string) => {
+    const newSelected = new Set(selectedRecordIds)
+    if (newSelected.has(recordId)) {
+      newSelected.delete(recordId)
+    } else {
+      newSelected.add(recordId)
+    }
+    setSelectedRecordIds(newSelected)
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedRecordIds.size === records.length) {
+      setSelectedRecordIds(new Set())
+    } else {
+      setSelectedRecordIds(new Set(records.map(r => r.id)))
+    }
+  }
+
+  // 批量删除记录
+  const deleteSelectedRecords = () => {
+    if (selectedRecordIds.size === 0) {
+      Taro.showToast({ title: '请选择要删除的记录', icon: 'none' })
+      return
+    }
+
+    Taro.showModal({
+      title: '确认删除',
+      content: `确定要删除选中的 ${selectedRecordIds.size} 条美味记录吗？`,
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const result = await Network.request({
+              url: '/api/records/batch',
+              method: 'DELETE',
+              data: { ids: Array.from(selectedRecordIds) }
+            })
+
+            if ((result as any).data?.code === 200) {
+              Taro.showToast({ title: '删除成功', icon: 'success' })
+              setIsManageMode(false)
+              setSelectedRecordIds(new Set())
+              fetchData()
+            }
+          } catch (error) {
+            console.error('删除失败', error)
+            Taro.showToast({ title: '删除失败', icon: 'none' })
+          }
         }
       }
     })
@@ -316,6 +385,8 @@ const RecordsPage: FC = () => {
 
   // 跳转菜品详情页
   const goToDishDetail = (dishId: string) => {
+    // 管理模式下不跳转
+    if (isManageMode) return
     Taro.navigateTo({ url: `/pages/dish-detail/index?id=${dishId}` })
   }
 
@@ -504,9 +575,30 @@ const RecordsPage: FC = () => {
       {/* 美味记录区域 */}
       <View className="flex-1 bg-white">
         <View className="px-4 py-3 border-b border-gray-100">
-          <View className="flex flex-row items-center gap-2">
-            <Calendar size={18} color="#10B981" />
-            <Text className="text-base font-semibold text-gray-800">美味记录</Text>
+          <View className="flex flex-row items-center justify-between">
+            <View className="flex flex-row items-center gap-2">
+              <Calendar size={18} color="#10B981" />
+              <Text className="text-base font-semibold text-gray-800">美味记录</Text>
+            </View>
+            {/* 厨师长专属管理按钮 */}
+            {isHeadChef() && records.length > 0 && (
+              <View
+                className={`px-3 py-1.5 rounded-full flex flex-row items-center gap-1 ${isManageMode ? 'bg-red-500' : 'bg-gray-100'}`}
+                onClick={toggleManageMode}
+              >
+                {isManageMode ? (
+                  <>
+                    <X size={14} color="#fff" />
+                    <Text className="text-xs text-white">取消</Text>
+                  </>
+                ) : (
+                  <>
+                    <Settings size={14} color="#6B7280" />
+                    <Text className="text-xs text-gray-600">管理</Text>
+                  </>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -521,49 +613,113 @@ const RecordsPage: FC = () => {
             <Text className="text-xs text-gray-300 mt-1">确认菜单后会在这里显示</Text>
           </View>
         ) : (
-          <ScrollView scrollY className="flex-1">
-            {records.map(record => (
-              <View key={record.id} className="border-b border-gray-100 px-4 py-4">
-                {/* 日期和总热量 */}
-                <View className="flex flex-row items-center justify-between mb-3">
-                  <Text className="text-sm font-medium text-gray-800">{formatDate(record.date)}</Text>
-                  <View className="flex flex-row items-center gap-1 bg-orange-50 px-2 py-1 rounded-full">
-                    <Flame size={12} color="#F97316" />
-                    <Text className="text-xs text-orange-500 font-medium">共 {record.totalCalories} 千卡</Text>
+          <>
+            <ScrollView scrollY className="flex-1">
+              {records.map(record => (
+                <View 
+                  key={record.id} 
+                  className="border-b border-gray-100 px-4 py-4"
+                  onClick={() => isManageMode && toggleRecordSelection(record.id)}
+                >
+                  {/* 日期和总热量 */}
+                  <View className="flex flex-row items-center justify-between mb-3">
+                    <View className="flex flex-row items-center gap-2">
+                      {/* 管理模式下的复选框 */}
+                      {isManageMode && (
+                        <View 
+                          className="mr-2 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ 
+                            borderWidth: 2, 
+                            borderColor: selectedRecordIds.has(record.id) ? '#EF4444' : '#D1D5DB',
+                            backgroundColor: selectedRecordIds.has(record.id) ? '#EF4444' : 'transparent'
+                          }}
+                        >
+                          {selectedRecordIds.has(record.id) && (
+                            <Check size={12} color="#fff" />
+                          )}
+                        </View>
+                      )}
+                      <Text className="text-sm font-medium text-gray-800">{formatDate(record.date)}</Text>
+                    </View>
+                    <View className="flex flex-row items-center gap-1 bg-orange-50 px-2 py-1 rounded-full">
+                      <Flame size={12} color="#F97316" />
+                      <Text className="text-xs text-orange-500 font-medium">共 {record.totalCalories} 千卡</Text>
+                    </View>
+                  </View>
+
+                  {/* 菜品网格 - 一行四个 */}
+                  <View className="flex flex-row flex-wrap">
+                    {record.dishes.map((dish, index) => (
+                      <View
+                        key={`${dish.id}-${index}`}
+                        className="w-1/4 px-1 mb-2"
+                        onClick={() => goToDishDetail(dish.id)}
+                      >
+                        {/* 1:1 缩略图 */}
+                        <View className={`aspect-square rounded-lg overflow-hidden bg-gray-100 mb-1 ${isManageMode && selectedRecordIds.has(record.id) ? 'opacity-50' : ''}`}>
+                          <Image
+                            className="w-full h-full"
+                            src={getDishImage(dish)}
+                            mode="aspectFill"
+                          />
+                        </View>
+                        {/* 菜品名称 */}
+                        <Text className="text-xs text-gray-700 text-center truncate block">
+                          {dish.name}
+                        </Text>
+                        {/* 热量 */}
+                        <Text className="text-xs text-orange-500 text-center block">{dish.calories}千卡</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
+              ))}
 
-                {/* 菜品网格 - 一行四个 */}
-                <View className="flex flex-row flex-wrap">
-                  {record.dishes.map((dish, index) => (
-                    <View
-                      key={`${dish.id}-${index}`}
-                      className="w-1/4 px-1 mb-2"
-                      onClick={() => goToDishDetail(dish.id)}
-                    >
-                      {/* 1:1 缩略图 */}
-                      <View className="aspect-square rounded-lg overflow-hidden bg-gray-100 mb-1">
-                        <Image
-                          className="w-full h-full"
-                          src={getDishImage(dish)}
-                          mode="aspectFill"
-                        />
-                      </View>
-                      {/* 菜品名称 */}
-                      <Text className="text-xs text-gray-700 text-center truncate block">
-                        {dish.name}
-                      </Text>
-                      {/* 热量 */}
-                      <Text className="text-xs text-orange-500 text-center block">{dish.calories}千卡</Text>
-                    </View>
-                  ))}
+              {/* 底部安全区域 */}
+              <View style={{ height: '80px' }} />
+            </ScrollView>
+
+            {/* 管理模式底部操作栏 */}
+            {isManageMode && (
+              <View 
+                className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex flex-row items-center justify-between z-50"
+                style={{ bottom: 0, paddingBottom: '20px' }}
+              >
+                <View 
+                  className="flex flex-row items-center gap-2"
+                  onClick={toggleSelectAll}
+                >
+                  <View 
+                    className="w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ 
+                      borderWidth: 2, 
+                      borderColor: selectedRecordIds.size === records.length ? '#F97316' : '#D1D5DB',
+                      backgroundColor: selectedRecordIds.size === records.length ? '#F97316' : 'transparent'
+                    }}
+                  >
+                    {selectedRecordIds.size === records.length && (
+                      <Check size={12} color="#fff" />
+                    )}
+                  </View>
+                  <Text className="text-sm text-gray-600">
+                    {selectedRecordIds.size === records.length ? '取消全选' : '全选'}
+                  </Text>
+                </View>
+                <View className="flex flex-row items-center gap-3">
+                  <Text className="text-sm text-gray-500">
+                    已选 {selectedRecordIds.size} 条
+                  </Text>
+                  <View
+                    className={`px-6 py-2 rounded-full flex flex-row items-center gap-1 ${selectedRecordIds.size > 0 ? 'bg-red-500' : 'bg-gray-300'}`}
+                    onClick={selectedRecordIds.size > 0 ? deleteSelectedRecords : undefined}
+                  >
+                    <Trash2 size={16} color="#fff" />
+                    <Text className="text-sm text-white font-medium">删除</Text>
+                  </View>
                 </View>
               </View>
-            ))}
-
-            {/* 底部安全区域 */}
-            <View style={{ height: '20px' }} />
-          </ScrollView>
+            )}
+          </>
         )}
       </View>
 
