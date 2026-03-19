@@ -58,9 +58,10 @@ const HomePage: FC = () => {
     const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
     if (!isLoggedIn) {
       Taro.redirectTo({ url: '/pages/login/index' })
+      return
     }
     
-    // 获取用户信息
+    // 获取本地存储的用户信息（快速显示）
     const storedUser = Taro.getStorageSync('tianba_user')
     if (storedUser) {
       try {
@@ -69,11 +70,37 @@ const HomePage: FC = () => {
           nickname: userData.nickname,
           avatarUrl: (userData as any).avatar_url || userData.avatarUrl
         })
+        
+        // 从后端获取最新用户信息
+        fetchLatestUserInfo(userData.id)
       } catch (e) {
         console.error('解析用户信息失败:', e)
       }
     }
   }, [])
+
+  // 从后端获取最新用户信息
+  const fetchLatestUserInfo = async (userId: string) => {
+    try {
+      const userResult = await Network.request({
+        url: `/api/users/${userId}`
+      })
+      
+      const latestUser = (userResult as any).data?.data
+      if (latestUser) {
+        console.log('从后端获取最新用户信息:', latestUser)
+        // 更新状态
+        setCurrentUser({
+          nickname: latestUser.nickname,
+          avatarUrl: latestUser.avatarUrl
+        })
+        // 更新本地存储
+        Taro.setStorageSync('tianba_user', JSON.stringify(latestUser))
+      }
+    } catch (e) {
+      console.log('获取最新用户信息失败，使用本地缓存:', e)
+    }
+  }
 
   // 同步 isLoading 到 ref
   useEffect(() => {

@@ -85,7 +85,7 @@ const RecordsPage: FC = () => {
       return
     }
     
-    // 获取本地存储的用户信息（登录时已保存）
+    // 获取本地存储的用户信息（登录时已保存）- 快速显示
     const storedUser = Taro.getStorageSync('tianba_user')
     if (storedUser) {
       try {
@@ -113,8 +113,35 @@ const RecordsPage: FC = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 不再从后端获取用户信息，使用本地存储的用户信息
-      // 这样可以确保显示用户选择的头像和昵称
+      // 从后端获取最新用户信息（确保角色等信息是最新的）
+      const storedUser = Taro.getStorageSync('tianba_user')
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser)
+          const userId = userData.id
+          
+          // 从后端获取最新用户信息
+          const userResult = await Network.request({
+            url: `/api/users/${userId}`
+          })
+          
+          const latestUser = (userResult as any).data?.data
+          if (latestUser) {
+            console.log('从后端获取最新用户信息:', latestUser)
+            // 更新状态
+            setCurrentUser({
+              id: latestUser.id,
+              nickname: latestUser.nickname,
+              avatarUrl: latestUser.avatarUrl,
+              role: latestUser.role
+            })
+            // 更新本地存储
+            Taro.setStorageSync('tianba_user', JSON.stringify(latestUser))
+          }
+        } catch (e) {
+          console.log('获取最新用户信息失败，使用本地缓存:', e)
+        }
+      }
 
       // 获取待确认菜单
       const ordersResult = await Network.request({
