@@ -1,22 +1,25 @@
 import { View, Text, Input, Button, Image } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Lock, ChefHat, Eye, EyeOff, User } from 'lucide-react-taro'
+import { Lock, ChefHat, Eye, EyeOff, Camera } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
+
+// 默认头像
+const DEFAULT_AVATAR = 'https://picsum.photos/100?random=default'
 
 const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [wechatUserInfo, setWechatUserInfo] = useState<{ nickName: string; avatarUrl: string } | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [nickname, setNickname] = useState('')
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
   // 检查是否已经登录
   useEffect(() => {
-    // H5端：不再跳转到安装引导页，直接显示登录页
     checkLoginStatus()
   }, [])
 
@@ -55,36 +58,17 @@ const LoginPage: FC = () => {
     }
   }
 
-  // 获取微信用户信息（小程序端）
-  const getWechatUserInfo = async () => {
-    if (!isWeapp) return null
-    
-    try {
-      // 先检查是否已授权
-      const setting = await Taro.getSetting()
-      if (setting.authSetting['scope.userInfo']) {
-        // 已授权，直接获取用户信息
-        const userInfo = await Taro.getUserInfo()
-        return {
-          nickName: userInfo.userInfo.nickName,
-          avatarUrl: userInfo.userInfo.avatarUrl
-        }
-      }
-      return null
-    } catch (err) {
-      console.error('获取微信用户信息失败:', err)
-      return null
+  // 选择头像回调（新版API）
+  const handleChooseAvatar = (e: any) => {
+    const { avatarUrl: chosenAvatar } = e.detail
+    if (chosenAvatar) {
+      setAvatarUrl(chosenAvatar)
     }
   }
 
-  // 微信登录按钮回调
-  const handleGetUserInfo = async (e: any) => {
-    if (e.detail.userInfo) {
-      setWechatUserInfo({
-        nickName: e.detail.userInfo.nickName,
-        avatarUrl: e.detail.userInfo.avatarUrl
-      })
-    }
+  // 昵称输入回调（新版API）
+  const handleNicknameInput = (e: any) => {
+    setNickname(e.detail.value)
   }
 
   const handleLogin = async () => {
@@ -97,10 +81,16 @@ const LoginPage: FC = () => {
     setError('')
 
     try {
-      // 小程序端：获取微信用户信息
-      let wechatInfo = wechatUserInfo
-      if (isWeapp && !wechatInfo) {
-        wechatInfo = await getWechatUserInfo()
+      // 小程序端：获取微信登录 code
+      let wechatCode = ''
+      if (isWeapp) {
+        try {
+          const loginResult = await Taro.login()
+          wechatCode = loginResult.code
+          console.log('微信登录code:', wechatCode)
+        } catch (loginErr) {
+          console.error('微信登录失败:', loginErr)
+        }
       }
 
       const result = await Network.request({
@@ -108,8 +98,9 @@ const LoginPage: FC = () => {
         method: 'POST',
         data: { 
           password: password.trim(),
-          nickname: wechatInfo?.nickName,
-          avatarUrl: wechatInfo?.avatarUrl
+          code: wechatCode || undefined,
+          nickname: nickname.trim() || undefined,
+          avatarUrl: avatarUrl || undefined
         }
       })
 
@@ -159,33 +150,52 @@ const LoginPage: FC = () => {
       <View className="login-form">
         <View className="form-title">请输入访问密码</View>
         
-        {/* 小程序端：微信用户信息授权 */}
-        {isWeapp && !wechatUserInfo && (
+        {/* 小程序端：用户信息填写区域 */}
+        {isWeapp && (
           <View className="mb-4">
-            <Button
-              className="w-full flex flex-row items-center justify-center gap-2 py-3 rounded-xl border border-orange-200 bg-orange-50"
-              openType="getUserInfo"
-              onGetUserInfo={handleGetUserInfo}
-            >
-              <User size={18} color="#F97316" />
-              <Text className="text-orange-500 text-sm">获取微信头像和昵称</Text>
-            </Button>
-            <Text className="text-xs text-gray-400 text-center mt-1">可选，用于在美味记录中展示</Text>
-          </View>
-        )}
-
-        {/* 已获取的微信用户信息展示 */}
-        {isWeapp && wechatUserInfo && (
-          <View className="mb-4 flex flex-row items-center gap-3 p-3 bg-orange-50 rounded-xl">
-            <Image
-              className="w-12 h-12 rounded-full"
-              src={wechatUserInfo.avatarUrl}
-              mode="aspectFill"
-            />
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-gray-800">{wechatUserInfo.nickName}</Text>
-              <Text className="text-xs text-green-600">✓ 已获取微信信息</Text>
+            {/* 头像选择 */}
+            <View className="flex flex-row items-center justify-center mb-3">
+              <Button
+                className="p-0 m-0 bg-transparent border-0"
+                style={{ background: 'transparent', border: 'none', padding: 0, margin: 0 }}
+                openType="chooseAvatar"
+                onChooseAvatar={handleChooseAvatar}
+              >
+                <View className="relative">
+                  <Image
+                    className="w-20 h-20 rounded-full"
+                    src={avatarUrl || DEFAULT_AVATAR}
+                    mode="aspectFill"
+                  />
+                  {/* 编辑图标 */}
+                  <View 
+                    className="absolute bottom-0 right-0 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center"
+                    style={{ borderWidth: 2, borderColor: '#fff' }}
+                  >
+                    <Camera size={12} color="#fff" />
+                  </View>
+                </View>
+              </Button>
             </View>
+            
+            {/* 昵称输入 */}
+            <View 
+              className="flex flex-row items-center justify-center gap-2 p-3 bg-gray-50 rounded-xl mx-2"
+            >
+              <Text className="text-sm text-gray-500">昵称：</Text>
+              <Input
+                className="flex-1 text-sm"
+                type="nickname"
+                placeholder="请输入昵称"
+                value={nickname}
+                onInput={handleNicknameInput}
+                maxlength={20}
+              />
+            </View>
+            
+            <Text className="text-xs text-gray-400 text-center mt-2">
+              可选：设置头像和昵称后，将展示在美味记录中
+            </Text>
           </View>
         )}
         

@@ -58,6 +58,24 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 export class UserService implements OnModuleInit {
   private client = getSupabaseClient()
 
+  /**
+   * 转换用户数据格式（snake_case -> camelCase）
+   */
+  private transformUser(user: any): any {
+    if (!user) return null
+    return {
+      id: user.id,
+      wechatId: user.wechat_id,
+      nickname: user.nickname,
+      avatarUrl: user.avatar_url,
+      role: user.role,
+      verified: user.verified,
+      verificationCode: user.verification_code,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    }
+  }
+
   async onModuleInit() {
     // 检查数据库是否有用户，没有则初始化示例数据
     const { count } = await this.client
@@ -180,7 +198,7 @@ export class UserService implements OnModuleInit {
       return []
     }
 
-    return data || []
+    return (data || []).map(user => this.transformUser(user))
   }
 
   /**
@@ -197,7 +215,7 @@ export class UserService implements OnModuleInit {
       return null
     }
 
-    return data
+    return this.transformUser(data)
   }
 
   /**
@@ -214,7 +232,7 @@ export class UserService implements OnModuleInit {
       return null
     }
 
-    return data
+    return this.transformUser(data)
   }
 
   /**
@@ -235,7 +253,7 @@ export class UserService implements OnModuleInit {
         .from('users')
         .update({
           nickname: data.nickname,
-          avatar_url: data.avatarUrl || userAny.avatar_url,
+          avatar_url: data.avatarUrl || userAny.avatarUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
@@ -246,7 +264,7 @@ export class UserService implements OnModuleInit {
         console.error('更新用户失败:', error)
         return user
       }
-      return updated
+      return this.transformUser(updated)
     } else {
       // 创建新用户，默认为客人，未验证
       const { data: newUser, error } = await this.client
@@ -265,7 +283,7 @@ export class UserService implements OnModuleInit {
         console.error('创建用户失败:', error)
         throw new Error('创建用户失败')
       }
-      return newUser
+      return this.transformUser(newUser)
     }
   }
 
@@ -323,7 +341,7 @@ export class UserService implements OnModuleInit {
       })
       .eq('code', code)
 
-    return { success: true, message: '验证成功', user: updatedUser }
+    return { success: true, message: '验证成功', user: this.transformUser(updatedUser) }
   }
 
   /**
@@ -421,7 +439,7 @@ export class UserService implements OnModuleInit {
       return null
     }
 
-    return data
+    return this.transformUser(data)
   }
 
   /**
@@ -442,7 +460,7 @@ export class UserService implements OnModuleInit {
       return null
     }
 
-    return data
+    return this.transformUser(data)
   }
 
   /**

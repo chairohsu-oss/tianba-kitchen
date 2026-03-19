@@ -13,8 +13,13 @@ export class AuthController {
    * 登录验证
    */
   @Post('login')
-  async login(@Body() body: { password: string; nickname?: string; avatarUrl?: string }) {
-    const { password, nickname, avatarUrl } = body
+  async login(@Body() body: { 
+    password: string; 
+    code?: string;
+    nickname?: string; 
+    avatarUrl?: string 
+  }) {
+    const { password, code, nickname, avatarUrl } = body
 
     if (!password) {
       throw new BadRequestException('请输入密码')
@@ -34,20 +39,43 @@ export class AuthController {
     // 生成访问令牌
     const token = this.authService.generateToken()
 
-    // 如果有昵称，更新用户信息
+    // 获取微信 openid
+    let wechatOpenId = ''
+    if (code) {
+      try {
+        wechatOpenId = await this.getWechatOpenId(code)
+        console.log('获取到微信openid:', wechatOpenId)
+      } catch (err) {
+        console.error('获取微信openid失败:', err)
+        // 获取失败不影响登录，继续使用临时ID
+      }
+    }
+
+    // 如果有昵称或openid，创建或更新用户
     let user: User | null = null
-    if (nickname) {
+    const userId = wechatOpenId || (nickname ? `wechat_${Date.now()}` : '')
+    
+    if (userId && nickname) {
       try {
         user = await this.userService.createOrUpdate({
-          wechatId: `wechat_${Date.now()}`,
+          wechatId: userId,
           nickname,
           avatarUrl,
         })
       } catch (err) {
         console.error('更新用户信息失败:', err)
       }
-    } else {
-      // 返回默认用户
+    } else if (wechatOpenId) {
+      // 只有 openid，尝试查找已有用户
+      try {
+        user = await this.userService.findByWechatId(wechatOpenId)
+      } catch (err) {
+        console.error('查找用户失败:', err)
+      }
+    }
+    
+    // 如果没有用户信息，返回默认用户
+    if (!user) {
       user = await this.userService.findOne('default_user')
     }
 
@@ -59,6 +87,39 @@ export class AuthController {
         token,
         user,
       },
+    }
+  }
+
+  /**
+   * 通过微信 code 获取 openid
+   * 文档：https://developers.weixin.qq.com/miniprogram/dev/api-backend/open-api/login/auth.code2Session.html
+   */
+  private async getWechatOpenId(code: string): Promise<string> {
+    // 从环境变量获取微信配置
+    const appId = process.env.WECHAT_APPID || process.env.WX_APPID
+    const appSecret = process.env.WECHAT_SECRET || process.env.WX_SECRET
+
+    // 如果没有配置微信 AppID 和 Secret，返回空字符串
+    if (!appId || !appSecret) {
+      console.log('未配置微信 AppID 或 Secret，跳过 openid 获取')
+      return ''
+    }
+
+    try {
+      const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appId}&secret=${appSecret}&js_code=${code}&grant_type=authorization_code`
+      
+      const response = await fetch(url)
+      const data = await response.json() as { openid?: string; errcode?: number; errmsg?: string }
+      
+      if (data.errcode && data.errcode !== 0) {
+        console.error('微信登录失败:', data.errmsg)
+        return ''
+      }
+      
+      return data.openid || ''
+    } catch (err) {
+      console.error('调用微信API失败:', err)
+      return ''
     }
   }
 
