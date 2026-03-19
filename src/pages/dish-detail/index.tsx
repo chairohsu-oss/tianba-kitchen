@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
-import { Flame, Wheat, Droplet, ChefHat, ArrowLeft } from 'lucide-react-taro'
+import { Flame, Wheat, Droplet, ChefHat, ArrowLeft, Pencil, Trash2 } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 
@@ -79,6 +79,45 @@ const DishDetailPage: FC = () => {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 删除菜品
+  const handleDelete = () => {
+    Taro.showModal({
+      title: '确认删除',
+      content: `确定要删除「${dish?.name}」吗？此操作不可恢复。`,
+      confirmColor: '#EF4444',
+      confirmText: '删除',
+      cancelText: '取消',
+      success: async (res) => {
+        if (res.confirm && dish) {
+          try {
+            const result = await Network.request({
+              url: `/api/dishes/${dish.id}`,
+              method: 'DELETE'
+            })
+            if ((result as any).data?.code === 200) {
+              Taro.showToast({ title: '删除成功', icon: 'success' })
+              setTimeout(() => Taro.navigateBack(), 1500)
+            } else {
+              Taro.showToast({ title: '删除失败', icon: 'none' })
+            }
+          } catch (error) {
+            console.error('删除失败:', error)
+            Taro.showToast({ title: '删除失败', icon: 'none' })
+          }
+        }
+      }
+    })
+  }
+
+  // 编辑菜品（跳转到添加页面，带菜品ID）
+  const handleEdit = () => {
+    if (dish) {
+      Taro.navigateTo({ 
+        url: `/pages/add/index?editId=${dish.id}` 
+      })
     }
   }
 
@@ -256,8 +295,29 @@ const DishDetailPage: FC = () => {
         )}
 
         {/* 底部安全区域 */}
-        <View style={{ height: '20px' }} />
+        <View style={{ height: '100px' }} />
       </ScrollView>
+
+      {/* 底部操作栏 */}
+      <View 
+        className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex flex-row gap-3"
+        style={{ bottom: 0, paddingBottom: '20px' }}
+      >
+        <View 
+          className="flex-1 flex flex-row items-center justify-center gap-2 bg-blue-500 rounded-xl py-3"
+          onClick={handleEdit}
+        >
+          <Pencil size={18} color="#fff" />
+          <Text className="text-white font-medium">编辑</Text>
+        </View>
+        <View 
+          className="flex-1 flex flex-row items-center justify-center gap-2 bg-red-500 rounded-xl py-3"
+          onClick={handleDelete}
+        >
+          <Trash2 size={18} color="#fff" />
+          <Text className="text-white font-medium">删除</Text>
+        </View>
+      </View>
     </View>
   )
 }

@@ -1,7 +1,7 @@
 import { View, Text, Image, Input, Picker, ScrollView } from '@tarojs/components'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Taro from '@tarojs/taro'
-import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, ChefHat, User, Sparkles, Check } from 'lucide-react-taro'
+import Taro, { useRouter } from '@tarojs/taro'
+import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, ChefHat, User, Sparkles, Check, ArrowLeft } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -75,17 +75,81 @@ const AddDishPage: FC = () => {
   // E模块：生成状态
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedDish, setGeneratedDish] = useState<any>(null)
+  
+  // 编辑模式
+  const [editId, setEditId] = useState<string | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const showCuisineSelect = CATEGORIES[categoryIndex]?.id === 'chinese'
+  const router = useRouter()
 
-  // 检查登录状态
+  // 检查登录状态和编辑模式
   useEffect(() => {
     const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
     if (!isLoggedIn) {
       Taro.redirectTo({ url: '/pages/login/index' })
+      return
+    }
+
+    // 检查是否为编辑模式
+    const editIdParam = router.params?.editId
+    if (editIdParam) {
+      setEditId(editIdParam)
+      setIsEditMode(true)
+      loadDishForEdit(editIdParam)
     }
   }, [])
+
+  // 加载菜品数据进行编辑
+  const loadDishForEdit = async (dishId: string) => {
+    try {
+      Taro.showLoading({ title: '加载中...' })
+      const result = await Network.request({
+        url: `/api/dishes/${dishId}`
+      })
+      
+      const dishData = (result as any).data?.data || (result as any).data
+      if (dishData) {
+        // 填充表单数据
+        setDishName(dishData.name)
+        setImages(dishData.images || [])
+        
+        // 设置分类
+        const catIndex = CATEGORIES.findIndex(c => c.id === dishData.category)
+        if (catIndex >= 0) setCategoryIndex(catIndex)
+        
+        // 设置菜系
+        if (dishData.cuisine) {
+          const cuiIndex = CHINESE_CUISINES.findIndex(c => c.id === dishData.cuisine)
+          if (cuiIndex >= 0) setCuisineIndex(cuiIndex)
+        }
+        
+        // 设置生成的菜品数据
+        setGeneratedDish({
+          calories: dishData.calories,
+          protein: dishData.protein,
+          carbs: dishData.carbs,
+          fat: dishData.fat,
+          ingredients: dishData.ingredients,
+          seasoning: dishData.seasoning,
+          steps: dishData.steps,
+          tips: dishData.tips,
+          description: dishData.description,
+        })
+        
+        Taro.hideLoading()
+      } else {
+        Taro.hideLoading()
+        Taro.showToast({ title: '菜品不存在', icon: 'none' })
+        setTimeout(() => Taro.navigateBack(), 1500)
+      }
+    } catch (error) {
+      console.error('加载菜品失败:', error)
+      Taro.hideLoading()
+      Taro.showToast({ title: '加载失败', icon: 'none' })
+    }
+  }
 
   // 初始化录音管理器
   useEffect(() => {
@@ -359,19 +423,31 @@ const AddDishPage: FC = () => {
     if (!generatedDish) return
 
     try {
-      await Network.request({
-        url: '/api/dishes',
-        method: 'POST',
-        data: {
-          name: dishName,
-          images,
-          category: CATEGORIES[categoryIndex].id,
-          cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
-          ...generatedDish
-        }
-      })
-      
-      Taro.showToast({ title: '保存成功！', icon: 'success' })
+      const dishData = {
+        name: dishName,
+        images,
+        category: CATEGORIES[categoryIndex].id,
+        cuisine: showCuisineSelect ? CHINESE_CUISINES[cuisineIndex].id : undefined,
+        ...generatedDish
+      }
+
+      if (isEditMode && editId) {
+        // 更新已有菜品
+        await Network.request({
+          url: `/api/dishes/${editId}`,
+          method: 'PUT',
+          data: dishData
+        })
+        Taro.showToast({ title: '更新成功！', icon: 'success' })
+      } else {
+        // 创建新菜品
+        await Network.request({
+          url: '/api/dishes',
+          method: 'POST',
+          data: dishData
+        })
+        Taro.showToast({ title: '保存成功！', icon: 'success' })
+      }
       
       // 重置表单
       setImages([])
@@ -387,14 +463,31 @@ const AddDishPage: FC = () => {
         }
       ])
       setGeneratedDish(null)
+      
+      // 如果是编辑模式，返回上一页
+      if (isEditMode) {
+        setTimeout(() => Taro.navigateBack(), 1500)
+      }
     } catch (error) {
-      console.error('保存失败', error)
+      console.error('保存失败:', error)
       Taro.showToast({ title: '保存失败', icon: 'none' })
     }
   }
 
   return (
     <View className="flex flex-col bg-gray-50">
+      {/* 顶部导航栏 - 编辑模式时显示 */}
+      {isEditMode && (
+        <View className="fixed top-0 left-0 right-0 bg-white border-b border-gray-100 px-4 py-3 z-50 flex flex-row items-center">
+          <View onClick={() => Taro.navigateBack()}>
+            <ArrowLeft size={24} color="#374151" />
+          </View>
+          <Text className="flex-1 text-center text-base font-semibold text-gray-800 pr-6">
+            编辑菜品
+          </Text>
+        </View>
+      )}
+      
       {/* 录音状态遮罩层 */}
       {isRecording && (
         <View 
@@ -641,7 +734,9 @@ const AddDishPage: FC = () => {
                 onClick={saveDish}
               >
                 <Check size={18} color="#fff" />
-                <Text className="text-white font-medium ml-2">保存到菜品库</Text>
+                <Text className="text-white font-medium ml-2">
+                  {isEditMode ? '更新菜品' : '保存到菜品库'}
+                </Text>
               </View>
             </View>
           </View>
