@@ -1,7 +1,7 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Check, Clock, Flame, Calendar, ChefHat, X, User, Plus, Minus, Trash2 } from 'lucide-react-taro'
+import { Check, Clock, Flame, Calendar, ChefHat, X, User, Plus, Minus, Trash2, LogOut } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 
@@ -141,6 +141,26 @@ const RecordsPage: FC = () => {
   // 检查用户是否有权限操作菜单
   const canModifyOrder = () => {
     return currentUser && privilegedRoles.includes(currentUser.role)
+  }
+
+  // 退出登录
+  const handleLogout = () => {
+    Taro.showModal({
+      title: '退出登录',
+      content: '确定要退出当前账号吗？',
+      success: (res) => {
+        if (res.confirm) {
+          // 清除本地存储
+          Taro.removeStorageSync('tianba_logged_in')
+          Taro.removeStorageSync('tianba_login_time')
+          Taro.removeStorageSync('tianba_token')
+          Taro.removeStorageSync('tianba_user')
+          
+          // 跳转到登录页
+          Taro.redirectTo({ url: '/pages/login/index' })
+        }
+      }
+    })
   }
 
   // 确认菜单
@@ -314,11 +334,20 @@ const RecordsPage: FC = () => {
         {currentUser ? (
           <>
             <View className="flex flex-row items-center gap-3">
-              <Image
-                className="w-14 h-14 rounded-full"
-                src={currentUser.avatarUrl}
-                mode="aspectFill"
-              />
+              <View className="relative">
+                <Image
+                  className="w-14 h-14 rounded-full"
+                  src={currentUser.avatarUrl}
+                  mode="aspectFill"
+                />
+                <View 
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center"
+                  onClick={handleLogout}
+                  style={{ borderWidth: 2, borderColor: '#fff' }}
+                >
+                  <LogOut size={12} color="#6B7280" />
+                </View>
+              </View>
               <View className="flex flex-col">
                 <Text className="text-base font-semibold text-gray-800">{currentUser.nickname}</Text>
                 <View className={`self-start px-2 py-0.5 rounded-full mt-1 ${roleColors[currentUser.role] || 'bg-gray-100 text-gray-700'}`}>
