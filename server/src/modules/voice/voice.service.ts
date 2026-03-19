@@ -95,16 +95,10 @@ export class VoiceService implements OnModuleInit {
         console.error('语音识别失败:', error)
       }
       
-      // 返回一个合理的默认结果，避免用户无法继续操作
-      const defaultTexts = [
-        '土豆、西红柿、鸡蛋',
-        '五花肉、白菜、豆腐',
-        '排骨、青菜、蘑菇',
-        '牛肉、西兰花、胡萝卜',
-      ]
-      const randomText = defaultTexts[Math.floor(Math.random() * defaultTexts.length)]
-      console.log('使用默认结果:', randomText)
-      return { text: randomText }
+      // 语音识别失败时返回空字符串，让前端处理
+      // 不再返回默认食材，避免误导用户
+      console.log('语音识别失败，返回空结果')
+      return { text: '' }
     }
   }
 
