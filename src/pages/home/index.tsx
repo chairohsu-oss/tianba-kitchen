@@ -45,6 +45,9 @@ const HomePage: FC = () => {
   ])
   const [touchStartY, setTouchStartY] = useState(0)
   const [isCancelling, setIsCancelling] = useState(false)
+  
+  // 当前用户信息
+  const [currentUser, setCurrentUser] = useState<{ nickname: string; avatarUrl: string } | null>(null)
 
   const scrollViewRef = useRef<string>('')
   const isLoadingRef = useRef(false)
@@ -55,6 +58,20 @@ const HomePage: FC = () => {
     const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
     if (!isLoggedIn) {
       Taro.redirectTo({ url: '/pages/login/index' })
+    }
+    
+    // 获取用户信息
+    const storedUser = Taro.getStorageSync('tianba_user')
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        setCurrentUser({
+          nickname: userData.nickname,
+          avatarUrl: (userData as any).avatar_url || userData.avatarUrl
+        })
+      } catch (e) {
+        console.error('解析用户信息失败:', e)
+      }
     }
   }, [])
 
@@ -423,11 +440,22 @@ const HomePage: FC = () => {
     
     setIsCancelling(false)
     console.log('开始录音...')
-    recorderManagerRef.current?.start({
-      format: 'wav',
-      sampleRate: 16000,
-      numberOfChannels: 1
-    })
+    
+    try {
+      // 微信小程序录音参数配置
+      // 参考：https://developers.weixin.qq.com/miniprogram/dev/api/media/recorder/RecorderManager.start.html
+      recorderManagerRef.current?.start({
+        duration: 60000,        // 最长录音时间60秒
+        sampleRate: 16000,     // 采样率，ASR支持16000
+        numberOfChannels: 1,   // 单声道
+        encodeBitRate: 48000,  // 比特率
+        format: 'wav',         // 音频格式
+        audioSource: 'auto'    // 音频输入源
+      })
+    } catch (startError) {
+      console.error('启动录音失败:', startError)
+      Taro.showToast({ title: '启动录音失败', icon: 'none' })
+    }
   }
 
   // 停止录音
@@ -523,10 +551,10 @@ const HomePage: FC = () => {
           {messages.map(msg => (
             <View key={msg.id} id={`msg-${msg.id}`} className="mb-4 mt-2">
               {msg.role === 'user' ? (
-                <View className="flex flex-row justify-end items-start" style={{ gap: '8px', width: '100%' }}>
+                <View className="flex flex-row justify-end items-start" style={{ gap: '8px', width: 'calc(100% - 48px)' }}>
                   <View 
                     className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3" 
-                    style={{ flexShrink: 1, maxWidth: '85%' }}
+                    style={{ flexShrink: 1, maxWidth: '80%' }}
                   >
                     {/* 用户图片 */}
                     {msg.images && msg.images.length > 0 && (
@@ -546,7 +574,15 @@ const HomePage: FC = () => {
                     )}
                   </View>
                   <View style={{ width: '32px', height: '32px', flexShrink: 0 }} className="rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                    <User size={16} color="#6B7280" />
+                    {currentUser?.avatarUrl ? (
+                      <Image 
+                        className="w-full h-full"
+                        src={currentUser.avatarUrl}
+                        mode="aspectFill"
+                      />
+                    ) : (
+                      <User size={16} color="#6B7280" />
+                    )}
                   </View>
                 </View>
               ) : (

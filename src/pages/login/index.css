@@ -1,110 +1,111 @@
 .login-page {
-  min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 50%, #FFF7ED 100%);
   display: flex;
   flex-direction: column;
-  padding: 0 32px;
+  padding: 0 24px;
+  box-sizing: border-box;
 }
 
 .login-header {
-  padding-top: 60px;
+  flex: 0.5;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding-top: 20px;
 }
 
 .logo-container {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   background: linear-gradient(135deg, #FED7AA 0%, #FDBA74 100%);
-  border-radius: 50px;
+  border-radius: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.2);
+  margin-bottom: 12px;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.2);
 }
 
 .app-title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #1F2937;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .app-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: #6B7280;
 }
 
 .login-form {
-  flex: 1;
-  padding-top: 32px;
+  flex: 2;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
 }
 
 .form-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #374151;
-  margin-bottom: 32px;
+  text-align: center;
+  margin-bottom: 24px;
 }
 
 /* 用户信息区域 */
 .user-info-section {
   width: 100%;
-  margin-bottom: 32px;
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 24px;
-  border: 2px solid #F3F4F6;
+  margin-bottom: 20px;
 }
 
 .avatar-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .avatar-wrapper {
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: 80px;
+  height: 80px;
 }
 
 .avatar-image {
-  width: 96px;
-  height: 96px;
-  border-radius: 48px;
-  border: 4px solid #FFFFFF;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 80px;
+  height: 80px;
+  border-radius: 40px;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
 }
 
 .avatar-edit-icon {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: #F97316;
-  border-radius: 16px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid #FFFFFF;
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.3);
 }
 
 .nickname-container {
   display: flex;
   flex-direction: row;
   align-items: center;
-  background: #F9FAFB;
+  background: #FFFFFF;
   border-radius: 16px;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border: 2px solid #E5E7EB;
+  margin-bottom: 12px;
 }
 
 .nickname-label {
@@ -122,22 +123,22 @@
 
 .user-hint {
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: #9CA3AF;
-  margin-top: 16px;
 }
 
 /* 密码输入框 */
 .input-container {
   width: 100%;
   background: #FFFFFF;
-  border-radius: 20px;
-  padding: 0 20px;
+  border-radius: 16px;
+  padding: 0 18px;
   display: flex;
   flex-direction: row;
   align-items: center;
   border: 2px solid #E5E7EB;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 .input-container:focus-within {
@@ -150,33 +151,34 @@
 
 .password-input {
   flex: 1;
-  height: 60px;
-  font-size: 18px;
-  padding: 0 16px;
+  height: 54px;
+  font-size: 16px;
+  padding: 0 14px;
   background: transparent;
 }
 
 .eye-icon {
   flex-shrink: 0;
-  padding: 12px;
+  padding: 10px;
 }
 
 .error-text {
   color: #EF4444;
-  font-size: 15px;
-  margin-bottom: 20px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .login-button {
   width: 100%;
-  height: 60px;
+  height: 54px;
   background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
-  border-radius: 20px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 12px;
-  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+  margin-top: 8px;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
 }
 
 .login-button.disabled {
@@ -185,23 +187,26 @@
 
 .login-button-text {
   color: #FFFFFF;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
 }
 
 .hint-text {
   color: #9CA3AF;
-  font-size: 13px;
-  margin-top: 24px;
+  font-size: 12px;
+  margin-top: 20px;
+  text-align: center;
 }
 
 .login-footer {
-  padding-bottom: 32px;
+  flex: 0.3;
   display: flex;
+  align-items: center;
   justify-content: center;
+  padding-bottom: 24px;
 }
 
 .footer-text {
   color: #9CA3AF;
-  font-size: 12px;
+  font-size: 11px;
 }
