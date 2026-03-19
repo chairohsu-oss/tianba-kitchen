@@ -1,12 +1,12 @@
 import { View, Text, Input, Button, Image } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Lock, ChefHat, Eye, EyeOff, Camera } from 'lucide-react-taro'
+import { Lock, ChefHat, Eye, EyeOff, Camera, Loader } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
 
-// 默认头像（固定图片，不使用随机URL）
+// 默认头像（微信默认灰色头像）
 const DEFAULT_AVATAR = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
 // 生成UUID
@@ -28,6 +28,50 @@ const getOrCreateDeviceId = () => {
   return deviceId
 }
 
+// 检查是否是临时头像路径（需要上传）
+const isTempAvatar = (url: string): boolean => {
+  if (!url) return false
+  // 微信小程序临时路径
+  if (url.startsWith('wxfile://')) return true
+  if (url.startsWith('http://tmp/')) return true
+  if (url.startsWith('https://tmp/')) return true
+  // 微信临时头像（thirdwx.qlogo.cn 的临时头像也会过期）
+  if (url.includes('thirdwx.qlogo.cn') && url.includes('/132')) return true
+  return false
+}
+
+// 上传头像到对象存储
+const uploadAvatar = async (tempFilePath: string): Promise<string> => {
+  console.log('开始上传头像到对象存储:', tempFilePath)
+  
+  try {
+    const result = await Network.uploadFile({
+      url: '/api/upload/image',
+      filePath: tempFilePath,
+      name: 'file'
+    })
+    
+    console.log('上传结果:', result)
+    
+    // 解析响应
+    const responseData = typeof (result as any).data === 'string' 
+      ? JSON.parse((result as any).data) 
+      : (result as any).data
+    
+    const uploadedUrl = responseData?.data?.url
+    
+    if (uploadedUrl) {
+      console.log('头像上传成功:', uploadedUrl)
+      return uploadedUrl
+    } else {
+      throw new Error('上传响应中没有URL')
+    }
+  } catch (error) {
+    console.error('上传头像失败:', error)
+    throw error
+  }
+}
+
 const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -35,6 +79,7 @@ const LoginPage: FC = () => {
   const [error, setError] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [nickname, setNickname] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
   // 检查是否已经登录
@@ -78,10 +123,28 @@ const LoginPage: FC = () => {
   }
 
   // 选择头像回调（新版API）
-  const handleChooseAvatar = (e: any) => {
+  const handleChooseAvatar = async (e: any) => {
     const { avatarUrl: chosenAvatar } = e.detail
-    if (chosenAvatar) {
-      setAvatarUrl(chosenAvatar)
+    if (!chosenAvatar) return
+    
+    // 先显示临时头像
+    setAvatarUrl(chosenAvatar)
+    
+    // 检查是否需要上传
+    if (isTempAvatar(chosenAvatar)) {
+      setUploadingAvatar(true)
+      try {
+        // 上传到对象存储
+        const uploadedUrl = await uploadAvatar(chosenAvatar)
+        setAvatarUrl(uploadedUrl)
+        Taro.showToast({ title: '头像已保存', icon: 'success', duration: 1500 })
+      } catch (err) {
+        console.error('上传头像失败:', err)
+        Taro.showToast({ title: '头像上传失败', icon: 'none', duration: 2000 })
+        // 上传失败，保留临时头像（登录时可能还能用）
+      } finally {
+        setUploadingAvatar(false)
+      }
     }
   }
 
@@ -93,6 +156,12 @@ const LoginPage: FC = () => {
   const handleLogin = async () => {
     if (!password.trim()) {
       setError('请输入密码')
+      return
+    }
+
+    // 如果正在上传头像，等待完成
+    if (uploadingAvatar) {
+      Taro.showToast({ title: '头像上传中，请稍候', icon: 'none' })
       return
     }
 
@@ -191,10 +260,21 @@ const LoginPage: FC = () => {
                     src={avatarUrl || DEFAULT_AVATAR}
                     mode="aspectFill"
                   />
+                  {/* 上传中遮罩 */}
+                  {uploadingAvatar && (
+                    <View 
+                      className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center"
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    >
+                      <Loader size={24} color="#fff" className="animate-spin" />
+                    </View>
+                  )}
                   {/* 编辑图标 */}
-                  <View className="avatar-edit-icon">
-                    <Camera size={16} color="#fff" />
-                  </View>
+                  {!uploadingAvatar && (
+                    <View className="avatar-edit-icon">
+                      <Camera size={16} color="#fff" />
+                    </View>
+                  )}
                 </View>
               </Button>
             </View>
