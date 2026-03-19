@@ -426,8 +426,8 @@ const DishesPage: FC = () => {
                   </View>
                 ))}
                 
-                {/* 底部占位 */}
-                <View style={{ height: '80px' }} />
+                {/* 底部占位 - 确保可以滚动到底部不被购物车遮挡 */}
+                <View style={{ height: '160px' }} />
               </View>
             )}
           </ScrollView>

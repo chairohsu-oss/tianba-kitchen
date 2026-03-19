@@ -742,8 +742,8 @@ const AddDishPage: FC = () => {
           </View>
         )}
 
-        {/* 底部占位 */}
-        <View style={{ height: '100px' }} />
+        {/* 底部占位 - 确保内容不被底部固定区域遮挡 */}
+        <View style={{ height: '200px' }} />
       </ScrollView>
 
       {/* 底部固定区域：语音输入框 + AI生成按钮 */}
