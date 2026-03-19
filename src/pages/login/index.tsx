@@ -11,11 +11,24 @@ const LoginPage: FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const isH5 = Taro.getEnv() !== Taro.ENV_TYPE.WEAPP
 
   // 检查是否已经登录
   useEffect(() => {
+    // H5端：检测是否需要显示安装引导页
+    if (isH5) {
+      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true
+      
+      // 如果不是PWA模式（standalone），跳转到安装引导页
+      if (!isInStandaloneMode) {
+        Taro.redirectTo({ url: '/pages/install/index' })
+        return
+      }
+    }
+    
     checkLoginStatus()
-  }, [])
+  }, [isH5])
 
   const checkLoginStatus = async () => {
     try {

@@ -9,16 +9,8 @@ const InstallPage: FC = () => {
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [step, setStep] = useState(1)
-  const isH5 = Taro.getEnv() !== Taro.ENV_TYPE.WEAPP
 
   useEffect(() => {
-    // 仅在H5端执行检测
-    if (!isH5) {
-      // 小程序端直接跳转到登录页
-      Taro.redirectTo({ url: '/pages/login/index' })
-      return
-    }
-
     // 检测是否是iOS设备
     const ua = navigator.userAgent.toLowerCase()
     const isIOSDevice = /iphone|ipad|ipod/.test(ua)
@@ -29,11 +21,11 @@ const InstallPage: FC = () => {
       (window.navigator as any).standalone === true
     setIsStandalone(isInStandaloneMode)
 
-    // 如果已经是PWA模式，跳转到首页
+    // 如果已经是PWA模式，跳转到登录页
     if (isInStandaloneMode) {
-      Taro.redirectTo({ url: '/pages/home/index' })
+      Taro.redirectTo({ url: '/pages/login/index' })
     }
-  }, [isH5])
+  }, [])
 
   // 如果已经是standalone模式，不显示此页面
   if (isStandalone) {
@@ -44,13 +36,13 @@ const InstallPage: FC = () => {
     if (isIOS) {
       setStep(2)
     } else {
-      // 非iOS设备直接跳转
-      Taro.redirectTo({ url: '/pages/home/index' })
+      // 非iOS设备直接跳转到登录页
+      Taro.redirectTo({ url: '/pages/login/index' })
     }
   }
 
   const handleContinue = () => {
-    Taro.redirectTo({ url: '/pages/home/index' })
+    Taro.redirectTo({ url: '/pages/login/index' })
   }
 
   return (

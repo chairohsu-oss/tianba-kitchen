@@ -1,7 +1,7 @@
 export default defineAppConfig({
   pages: [
-    'pages/install/index',
     'pages/login/index',
+    'pages/install/index',
     'pages/home/index',
     'pages/dishes/index',
     'pages/add/index',
