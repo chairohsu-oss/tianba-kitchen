@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  tianba-kitchen:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # 数据库配置（使用 Supabase，无需本地数据库）
+      # 如需本地数据库，可取消注释下面的 postgres 服务
+    env_file:
+      - server/.env.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/dishes"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 可选：Nginx 反向代理（用于 SSL 和域名配置）
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - tianba-kitchen
+  #   restart: unless-stopped
+
+  # 可选：本地 PostgreSQL 数据库（如果不使用 Supabase）
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: tianba_kitchen
+  #     POSTGRES_USER: tianba
+  #     POSTGRES_PASSWORD: tianba_secret
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:

@@ -272,6 +272,10 @@ const DishesPage: FC = () => {
             })
             Taro.showToast({ title: '下单成功！', icon: 'success' })
             clearCart()
+            // 下单成功后跳转到美味记录页面查看待处理菜单
+            setTimeout(() => {
+              Taro.switchTab({ url: '/pages/records/index' })
+            }, 1500)
           } catch (error) {
             console.error('下单失败', error)
             Taro.showToast({ title: '下单失败', icon: 'none' })

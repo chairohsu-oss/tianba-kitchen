@@ -7,6 +7,7 @@ export default defineAppConfig({
     'pages/add/index',
     'pages/records/index',
     'pages/dish-detail/index',
+    'pages/edit/index',
   ],
   window: {
     backgroundTextStyle: 'light',

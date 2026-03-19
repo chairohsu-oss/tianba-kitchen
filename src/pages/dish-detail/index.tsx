@@ -112,11 +112,11 @@ const DishDetailPage: FC = () => {
     })
   }
 
-  // 编辑菜品（跳转到添加页面，带菜品ID）
+  // 编辑菜品（跳转到编辑页面）
   const handleEdit = () => {
     if (dish) {
       Taro.navigateTo({ 
-        url: `/pages/add/index?editId=${dish.id}` 
+        url: `/pages/edit/index?editId=${dish.id}` 
       })
     }
   }
