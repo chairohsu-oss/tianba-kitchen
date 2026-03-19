@@ -654,7 +654,7 @@ const AddDishPage: FC = () => {
       {/* 底部固定区域：语音输入框 + AI生成按钮 */}
       <View 
         className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40"
-        style={{ bottom: isWeapp ? 0 : 50 }}
+        style={{ bottom: isWeapp ? 0 : 80 }}
       >
         {/* D模块：语音输入框 - 和首页一样 */}
         <View className="flex flex-row items-center gap-2 mb-3">

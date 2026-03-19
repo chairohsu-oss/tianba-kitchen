@@ -289,7 +289,7 @@ const DishesPage: FC = () => {
         top: 0, 
         left: 0, 
         right: 0, 
-        bottom: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? 0 : 50,
+        bottom: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? 0 : 80,
         width: '100vw'
       }}
     >
@@ -546,7 +546,7 @@ const DishesPage: FC = () => {
           <View className="absolute inset-0 bg-black/30" />
           <View 
             className="absolute left-0 right-0 bg-white rounded-t-2xl"
-            style={{ bottom: '60px', maxHeight: '50%' }}
+            style={{ bottom: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '60px' : '140px', maxHeight: '50%' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 标题栏 */}
