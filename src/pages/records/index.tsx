@@ -354,6 +354,42 @@ const RecordsPage: FC = () => {
     })
   }
 
+  // 删除整笔菜单
+  const deleteOrder = async (orderId: string) => {
+    if (!canModifyOrder()) {
+      Taro.showToast({ title: '无权限操作', icon: 'none' })
+      return
+    }
+
+    Taro.showModal({
+      title: '确认删除',
+      content: '确定要删除这笔菜单吗？',
+      confirmColor: '#EF4444',
+      confirmText: '删除',
+      cancelText: '取消',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const result = await Network.request({
+              url: `/api/orders/${orderId}`,
+              method: 'DELETE'
+            })
+            if ((result as any).data?.code === 200) {
+              Taro.showToast({ title: '删除成功', icon: 'success' })
+              setSelectedOrder(null)
+              fetchData()
+            } else {
+              Taro.showToast({ title: '删除失败', icon: 'none' })
+            }
+          } catch (error) {
+            console.error('删除失败:', error)
+            Taro.showToast({ title: '删除失败', icon: 'none' })
+          }
+        }
+      }
+    })
+  }
+
   // 格式化日期
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -758,7 +794,8 @@ const RecordsPage: FC = () => {
           onClick={() => setSelectedOrder(null)}
         >
           <View 
-            className="bg-white rounded-2xl w-11/12 max-h-4/5 overflow-hidden"
+            className="bg-white rounded-2xl w-11/12 overflow-hidden"
+            style={{ maxHeight: '80vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 标题栏 */}
@@ -769,131 +806,164 @@ const RecordsPage: FC = () => {
               </View>
             </View>
 
-            <ScrollView scrollY className="p-4" style={{ maxHeight: '60vh' }}>
-              {/* 下单用户信息 */}
-              {selectedOrder.user && (
-                <View className="mb-4 flex flex-row items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <Image
-                    className="w-10 h-10 rounded-full"
-                    src={selectedOrder.user.avatarUrl}
-                    mode="aspectFill"
-                  />
-                  <View>
-                    <Text className="text-sm font-medium text-gray-800">{selectedOrder.user.nickname}</Text>
-                    <Text className="text-xs text-gray-500">下单时间: {formatTime(selectedOrder.createdAt)}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* 菜品列表 */}
-              <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-800 mb-2">菜品清单</Text>
-                {selectedOrder.items.map((item, i) => (
-                  <View 
-                    key={i} 
-                    className="flex flex-row items-center gap-3 py-2 border-b border-gray-50"
-                  >
+            <ScrollView scrollY style={{ maxHeight: '55vh' }}>
+              <View className="p-4">
+                {/* 下单用户信息 */}
+                {selectedOrder.user && (
+                  <View className="mb-4 flex flex-row items-center gap-3 p-3 bg-gray-50 rounded-xl">
                     <Image
-                      className="w-16 h-16 rounded-lg"
-                      src={getDishImage(item.dish)}
+                      className="w-10 h-10 rounded-full"
+                      src={selectedOrder.user.avatarUrl}
                       mode="aspectFill"
                     />
-                    <View className="flex-1">
-                      <Text className="text-sm font-medium text-gray-800">{item.dish.name}</Text>
-                      <Text className="text-xs text-gray-500">数量: {item.quantity}</Text>
-                      <Text className="text-xs text-orange-500">{item.dish.calories} 千卡</Text>
+                    <View>
+                      <Text className="text-sm font-medium text-gray-800">{selectedOrder.user.nickname}</Text>
+                      <Text className="text-xs text-gray-500">下单时间: {formatTime(selectedOrder.createdAt)}</Text>
                     </View>
-                    {/* 权限操作按钮 */}
-                    {canModifyOrder() && (
-                      <View className="flex flex-row items-center gap-2">
-                        <View
-                          className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center"
-                          onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, -1)}
-                        >
-                          <Minus size={14} color="#6B7280" />
-                        </View>
-                        <Text className="text-sm font-medium w-6 text-center">{item.quantity}</Text>
-                        <View
-                          className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center"
-                          onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, 1)}
-                        >
-                          <Plus size={14} color="#F97316" />
-                        </View>
-                        <View
-                          className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center ml-1"
-                          onClick={() => removeDishFromOrder(selectedOrder.id, item.dish.id)}
-                        >
-                          <Trash2 size={14} color="#EF4444" />
-                        </View>
-                      </View>
-                    )}
                   </View>
-                ))}
-              </View>
+                )}
 
-              {/* 合并的食材清单 */}
-              {selectedOrder.mergedIngredients && selectedOrder.mergedIngredients.length > 0 && (
+                {/* 菜品列表 */}
                 <View className="mb-4">
-                  <Text className="text-sm font-medium text-gray-800 mb-2">🥬 所需食材</Text>
-                  <View className="flex flex-row flex-wrap gap-2">
-                    {selectedOrder.mergedIngredients.map((ing, i) => (
-                      <View key={i} className="px-3 py-1.5 bg-green-50 rounded-lg">
-                        <Text className="text-xs text-green-700">{ing}</Text>
+                  <Text className="text-sm font-medium text-gray-800 mb-2">菜品清单</Text>
+                  {selectedOrder.items.length === 0 ? (
+                    <View className="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-xl">
+                      <Text className="text-gray-400 mb-2">菜单为空</Text>
+                      {canModifyOrder() && (
+                        <View
+                          className="px-4 py-2 bg-red-500 rounded-full"
+                          onClick={() => deleteOrder(selectedOrder.id)}
+                        >
+                          <Text className="text-white text-sm">删除这笔菜单</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    selectedOrder.items.map((item, i) => (
+                      <View 
+                        key={i} 
+                        className="flex flex-row items-start gap-3 py-3 border-b border-gray-100"
+                      >
+                        <Image
+                          className="w-16 h-16 rounded-lg flex-shrink-0"
+                          src={getDishImage(item.dish)}
+                          mode="aspectFill"
+                        />
+                        <View className="flex-1 min-w-0">
+                          <Text className="text-sm font-medium text-gray-800 truncate">{item.dish.name}</Text>
+                          <View className="flex flex-row items-center gap-2 mt-1">
+                            <Text className="text-xs text-gray-500">数量: {item.quantity}</Text>
+                            <Text className="text-xs text-orange-500">{item.dish.calories} 千卡</Text>
+                          </View>
+                        </View>
+                        {/* 权限操作按钮 - 独立一行显示更清晰 */}
+                        {canModifyOrder() && (
+                          <View className="flex flex-row items-center gap-1 flex-shrink-0">
+                            <View
+                              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+                              onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, -1)}
+                            >
+                              <Minus size={16} color="#6B7280" />
+                            </View>
+                            <Text className="text-sm font-medium w-6 text-center">{item.quantity}</Text>
+                            <View
+                              className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center"
+                              onClick={() => updateDishQuantity(selectedOrder.id, item.dish.id, 1)}
+                            >
+                              <Plus size={16} color="#F97316" />
+                            </View>
+                            <View
+                              className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center ml-1"
+                              onClick={() => removeDishFromOrder(selectedOrder.id, item.dish.id)}
+                            >
+                              <Trash2 size={16} color="#EF4444" />
+                            </View>
+                          </View>
+                        )}
                       </View>
-                    ))}
-                  </View>
+                    ))
+                  )}
                 </View>
-              )}
 
-              {/* 合并的配料清单 */}
-              {selectedOrder.mergedSeasoning && selectedOrder.mergedSeasoning.length > 0 && (
-                <View className="mb-4">
-                  <Text className="text-sm font-medium text-gray-800 mb-2">🧂 所需配料</Text>
-                  <View className="flex flex-row flex-wrap gap-2">
-                    {selectedOrder.mergedSeasoning.map((s, i) => (
-                      <View key={i} className="px-3 py-1.5 bg-purple-50 rounded-lg">
-                        <Text className="text-xs text-purple-700">{s}</Text>
-                      </View>
-                    ))}
+                {/* 合并的食材清单 */}
+                {selectedOrder.mergedIngredients && selectedOrder.mergedIngredients.length > 0 && (
+                  <View className="mb-4">
+                    <Text className="text-sm font-medium text-gray-800 mb-2">🥬 所需食材</Text>
+                    <View className="flex flex-row flex-wrap gap-2">
+                      {selectedOrder.mergedIngredients.map((ing, i) => (
+                        <View key={i} className="px-3 py-1.5 bg-green-50 rounded-lg">
+                          <Text className="text-xs text-green-700">{ing}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
 
-              {/* 总热量 */}
-              <View className="flex flex-row items-center justify-center py-3 bg-orange-50 rounded-xl">
-                <Flame size={18} color="#F97316" />
-                <Text className="text-lg font-bold text-orange-500 ml-1">{selectedOrder.totalCalories}</Text>
-                <Text className="text-sm text-orange-500 ml-1">千卡</Text>
+                {/* 合并的配料清单 */}
+                {selectedOrder.mergedSeasoning && selectedOrder.mergedSeasoning.length > 0 && (
+                  <View className="mb-4">
+                    <Text className="text-sm font-medium text-gray-800 mb-2">🧂 所需配料</Text>
+                    <View className="flex flex-row flex-wrap gap-2">
+                      {selectedOrder.mergedSeasoning.map((s, i) => (
+                        <View key={i} className="px-3 py-1.5 bg-purple-50 rounded-lg">
+                          <Text className="text-xs text-purple-700">{s}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 总热量 */}
+                {selectedOrder.items.length > 0 && (
+                  <View className="flex flex-row items-center justify-center py-3 bg-orange-50 rounded-xl">
+                    <Flame size={18} color="#F97316" />
+                    <Text className="text-lg font-bold text-orange-500 ml-1">{selectedOrder.totalCalories}</Text>
+                    <Text className="text-sm text-orange-500 ml-1">千卡</Text>
+                  </View>
+                )}
               </View>
             </ScrollView>
 
             {/* 底部按钮 */}
             <View className="flex flex-row gap-3 p-4 border-t border-gray-100">
-              {canModifyOrder() && (
+              {canModifyOrder() && selectedOrder.items.length > 0 && (
+                <>
+                  <View
+                    className="flex-1 bg-blue-500 rounded-full py-3 flex flex-row items-center justify-center"
+                    onClick={() => {
+                      setSelectedOrder(null)
+                      goToAddDishes(selectedOrder.id)
+                    }}
+                  >
+                    <Plus size={18} color="#fff" />
+                    <Text className="text-white font-medium ml-1">添加</Text>
+                  </View>
+                  <View
+                    className="flex-1 bg-red-100 rounded-full py-3 flex flex-row items-center justify-center"
+                    onClick={() => deleteOrder(selectedOrder.id)}
+                  >
+                    <Trash2 size={18} color="#EF4444" />
+                    <Text className="text-red-500 font-medium ml-1">删除</Text>
+                  </View>
+                </>
+              )}
+              {selectedOrder.items.length > 0 && (
                 <View
-                  className="flex-1 bg-blue-500 rounded-full py-3 flex flex-row items-center justify-center"
-                  onClick={() => {
-                    setSelectedOrder(null)
-                    goToAddDishes(selectedOrder.id)
-                  }}
+                  className="flex-1 bg-orange-500 rounded-full py-3 flex flex-row items-center justify-center"
+                  onClick={() => confirmOrder(selectedOrder.id)}
                 >
-                  <Plus size={18} color="#fff" />
-                  <Text className="text-white font-medium ml-1">添加菜品</Text>
+                  <Check size={18} color="#fff" />
+                  <Text className="text-white font-medium ml-1">确认</Text>
                 </View>
               )}
-              <View
-                className="flex-1 bg-gray-100 rounded-full py-3 flex items-center justify-center"
-                onClick={() => setSelectedOrder(null)}
-              >
-                <Text className="text-gray-600 font-medium">取消</Text>
-              </View>
-              <View
-                className="flex-1 bg-orange-500 rounded-full py-3 flex flex-row items-center justify-center"
-                onClick={() => confirmOrder(selectedOrder.id)}
-              >
-                <Check size={18} color="#fff" />
-                <Text className="text-white font-medium ml-1">确认制作</Text>
-              </View>
+              {selectedOrder.items.length === 0 && (
+                <View
+                  className="flex-1 bg-gray-100 rounded-full py-3 flex items-center justify-center"
+                  onClick={() => setSelectedOrder(null)}
+                >
+                  <Text className="text-gray-600 font-medium">关闭</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>

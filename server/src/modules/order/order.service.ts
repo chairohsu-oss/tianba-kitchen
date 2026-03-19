@@ -418,4 +418,32 @@ export class OrderService {
 
     return this.updateItems(orderId, order.items)
   }
+
+  /**
+   * 删除订单（同时删除订单项）
+   */
+  async delete(orderId: string): Promise<{ success: boolean }> {
+    // 先删除订单项
+    const { error: itemsError } = await this.client
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId)
+
+    if (itemsError) {
+      console.error('删除订单项失败:', itemsError)
+    }
+
+    // 再删除订单
+    const { error: orderError } = await this.client
+      .from('orders')
+      .delete()
+      .eq('id', orderId)
+
+    if (orderError) {
+      console.error('删除订单失败:', orderError)
+      throw new Error('删除订单失败')
+    }
+
+    return { success: true }
+  }
 }

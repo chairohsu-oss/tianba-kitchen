@@ -142,6 +142,19 @@ export class OrderController {
   }
 
   /**
+   * 删除整笔订单
+   */
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    const result = await this.orderService.delete(id)
+    return {
+      code: 200,
+      msg: '删除成功',
+      data: result,
+    }
+  }
+
+  /**
    * 向订单添加菜品
    */
   @Post(':id/items')
