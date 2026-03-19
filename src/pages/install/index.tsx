@@ -14,8 +14,8 @@ const InstallPage: FC = () => {
   useEffect(() => {
     // 仅在H5端执行检测
     if (!isH5) {
-      // 小程序端直接跳转到首页
-      Taro.redirectTo({ url: '/pages/home/index' })
+      // 小程序端直接跳转到登录页
+      Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
 
