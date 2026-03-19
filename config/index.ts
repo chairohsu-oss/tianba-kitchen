@@ -95,13 +95,17 @@ export default defineConfig<'vite'>(async (merge, _env) => {
       ),
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
     },
-    copy: {
-      patterns: [
-        { from: 'public/manifest.json', to: 'manifest.json' },
-        { from: 'public/icons', to: 'icons' },
-      ],
-      options: {},
-    },
+    // copy配置仅在H5平台生效，小程序不需要这些PWA资源
+    ...(process.env.TARO_ENV === 'h5' ? {
+      copy: {
+        patterns: [
+          { from: 'public-h5/manifest.json', to: 'manifest.json' },
+          { from: 'public-h5/icons', to: 'icons' },
+          { from: 'public-h5/splash', to: 'splash' },
+        ],
+        options: {},
+      },
+    } : { copy: { patterns: [], options: {} } }),
     ...(process.env.TARO_ENV === 'tt' && {
       tt: {
         appid: process.env.TARO_APP_TT_APPID,
@@ -151,7 +155,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
               {
                 name: 'copy-pwa-files',
                 writeBundle() {
-                  const publicDir = path.resolve(__dirname, '../public');
+                  const publicDir = path.resolve(__dirname, '../public-h5');
                   const outDir = path.resolve(__dirname, '../dist-web');
                   
                   // 复制 manifest.json
