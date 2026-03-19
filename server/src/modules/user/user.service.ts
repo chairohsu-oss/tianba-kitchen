@@ -236,6 +236,20 @@ export class UserService implements OnModuleInit {
   }
 
   /**
+   * 检查是否是临时头像路径（不应保存到数据库）
+   */
+  private isTempAvatar(url: string): boolean {
+    if (!url) return true
+    // 微信小程序临时路径
+    if (url.startsWith('wxfile://')) return true
+    if (url.startsWith('http://tmp/')) return true
+    if (url.startsWith('https://tmp/')) return true
+    // 微信临时头像（thirdwx.qlogo.cn 的 132 尺寸头像是临时的）
+    if (url.includes('thirdwx.qlogo.cn') && url.includes('/132')) return true
+    return false
+  }
+
+  /**
    * 创建或更新用户
    */
   async createOrUpdate(data: {
@@ -243,6 +257,11 @@ export class UserService implements OnModuleInit {
     nickname: string
     avatarUrl?: string
   }): Promise<User> {
+    // 检查头像是否是临时路径
+    const validAvatarUrl = data.avatarUrl && !this.isTempAvatar(data.avatarUrl) 
+      ? data.avatarUrl 
+      : undefined
+    
     // 查找是否已存在
     let user = await this.findByWechatId(data.wechatId)
     const userAny = user as any
@@ -253,7 +272,8 @@ export class UserService implements OnModuleInit {
         .from('users')
         .update({
           nickname: data.nickname,
-          avatar_url: data.avatarUrl || userAny.avatarUrl,
+          // 只有有效的头像URL才更新，否则保留原来的
+          avatar_url: validAvatarUrl || userAny.avatarUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
@@ -267,12 +287,15 @@ export class UserService implements OnModuleInit {
       return this.transformUser(updated)
     } else {
       // 创建新用户，默认为客人，密码验证通过即视为已验证
+      // 使用默认头像，如果有有效头像URL则使用
+      const defaultAvatar = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+      
       const { data: newUser, error } = await this.client
         .from('users')
         .insert({
           wechat_id: data.wechatId,
           nickname: data.nickname,
-          avatar_url: data.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0',
+          avatar_url: validAvatarUrl || defaultAvatar,
           role: 'guest',
           verified: true,  // 密码验证通过，直接设为已验证
         })

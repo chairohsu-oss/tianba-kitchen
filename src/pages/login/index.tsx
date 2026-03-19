@@ -140,8 +140,14 @@ const LoginPage: FC = () => {
         Taro.showToast({ title: '头像已保存', icon: 'success', duration: 1500 })
       } catch (err) {
         console.error('上传头像失败:', err)
-        Taro.showToast({ title: '头像上传失败', icon: 'none', duration: 2000 })
-        // 上传失败，保留临时头像（登录时可能还能用）
+        // 上传失败，清除临时头像，显示默认头像
+        setAvatarUrl('')
+        Taro.showModal({
+          title: '头像上传失败',
+          content: '将使用默认头像，您可以在登录后重新设置',
+          showCancel: false,
+          confirmText: '知道了'
+        })
       } finally {
         setUploadingAvatar(false)
       }
@@ -184,6 +190,10 @@ const LoginPage: FC = () => {
       // 获取设备ID（用于在没有微信openid时标识用户）
       const deviceId = getOrCreateDeviceId()
       console.log('设备ID:', deviceId)
+      
+      // 检查头像是否是有效的永久URL（不是临时路径）
+      const validAvatarUrl = avatarUrl && !isTempAvatar(avatarUrl) ? avatarUrl : undefined
+      console.log('登录参数 - 昵称:', nickname.trim() || undefined, '头像:', validAvatarUrl)
 
       const result = await Network.request({
         url: '/api/auth/login',
@@ -193,7 +203,7 @@ const LoginPage: FC = () => {
           code: wechatCode || undefined,
           deviceId: deviceId,
           nickname: nickname.trim() || undefined,
-          avatarUrl: avatarUrl || undefined
+          avatarUrl: validAvatarUrl
         }
       })
 
