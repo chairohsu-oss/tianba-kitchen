@@ -633,7 +633,7 @@ const HomePage: FC = () => {
         {/* 底部输入区域 - 固定在底部 */}
         <View 
           className="fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40"
-          style={{ bottom: '0px' }}
+          style={{ bottom: isWeapp ? '0px' : '50px' }}
         >
           <View className="flex flex-row items-center gap-2">
             {/* 左侧：图片上传按钮 */}

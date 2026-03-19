@@ -289,7 +289,7 @@ const DishesPage: FC = () => {
         top: 0, 
         left: 0, 
         right: 0, 
-        bottom: 0,
+        bottom: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? 0 : 50,
         width: '100vw'
       }}
     >
