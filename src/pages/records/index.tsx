@@ -81,11 +81,12 @@ const RecordsPage: FC = () => {
       return
     }
     
-    // 获取本地存储的用户信息
+    // 获取本地存储的用户信息（登录时已保存）
     const storedUser = Taro.getStorageSync('tianba_user')
     if (storedUser) {
       try {
         const userData = JSON.parse(storedUser)
+        console.log('从本地存储读取用户信息:', userData)
         setCurrentUser({
           id: userData.id,
           nickname: userData.nickname,
@@ -108,14 +109,8 @@ const RecordsPage: FC = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 获取当前用户信息
-      const userResult = await Network.request({
-        url: '/api/users/me'
-      })
-      const userData = (userResult as any).data?.data
-      if (userData) {
-        setCurrentUser(userData)
-      }
+      // 不再从后端获取用户信息，使用本地存储的用户信息
+      // 这样可以确保显示用户选择的头像和昵称
 
       // 获取待确认菜单
       const ordersResult = await Network.request({

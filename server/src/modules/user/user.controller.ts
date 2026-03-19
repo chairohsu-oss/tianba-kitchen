@@ -244,6 +244,26 @@ export class UserController {
   }
 
   /**
+   * 验证用户（管理员操作）
+   */
+  @Post(':id/verify')
+  async verifyUserByAdmin(@Param('id') id: string) {
+    const user = await this.userService.verifyUserById(id)
+    if (!user) {
+      return {
+        code: 404,
+        msg: '用户不存在',
+        data: null,
+      }
+    }
+    return {
+      code: 200,
+      msg: '验证成功',
+      data: user,
+    }
+  }
+
+  /**
    * 重置用户验证状态
    */
   @Post(':id/reset-verification')

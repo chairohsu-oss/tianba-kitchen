@@ -266,15 +266,15 @@ export class UserService implements OnModuleInit {
       }
       return this.transformUser(updated)
     } else {
-      // 创建新用户，默认为客人，未验证
+      // 创建新用户，默认为客人，密码验证通过即视为已验证
       const { data: newUser, error } = await this.client
         .from('users')
         .insert({
           wechat_id: data.wechatId,
           nickname: data.nickname,
-          avatar_url: data.avatarUrl || 'https://picsum.photos/100?random=new',
+          avatar_url: data.avatarUrl || 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0',
           role: 'guest',
-          verified: false,
+          verified: true,  // 密码验证通过，直接设为已验证
         })
         .select()
         .single()
@@ -401,6 +401,31 @@ export class UserService implements OnModuleInit {
       .eq('code', code)
 
     return !error
+  }
+
+  /**
+   * 验证用户（管理员操作）
+   */
+  async verifyUserById(userId: string): Promise<User | null> {
+    const user = await this.findOne(userId)
+    if (!user) return null
+
+    const { data, error } = await this.client
+      .from('users')
+      .update({
+        verified: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('验证用户失败:', error)
+      return null
+    }
+
+    return this.transformUser(data)
   }
 
   /**

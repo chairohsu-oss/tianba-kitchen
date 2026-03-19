@@ -16,10 +16,11 @@ export class AuthController {
   async login(@Body() body: { 
     password: string; 
     code?: string;
+    deviceId?: string;
     nickname?: string; 
     avatarUrl?: string 
   }) {
-    const { password, code, nickname, avatarUrl } = body
+    const { password, code, deviceId, nickname, avatarUrl } = body
 
     if (!password) {
       throw new BadRequestException('请输入密码')
@@ -47,13 +48,15 @@ export class AuthController {
         console.log('获取到微信openid:', wechatOpenId)
       } catch (err) {
         console.error('获取微信openid失败:', err)
-        // 获取失败不影响登录，继续使用临时ID
+        // 获取失败不影响登录，继续使用设备ID
       }
     }
 
-    // 如果有昵称或openid，创建或更新用户
+    // 用户标识：优先使用微信openid，其次使用设备ID
+    const userId = wechatOpenId || deviceId || ''
+    
+    // 如果有用户标识和昵称，创建或更新用户
     let user: User | null = null
-    const userId = wechatOpenId || (nickname ? `wechat_${Date.now()}` : '')
     
     if (userId && nickname) {
       try {
@@ -62,13 +65,15 @@ export class AuthController {
           nickname,
           avatarUrl,
         })
+        console.log('创建/更新用户成功:', user)
       } catch (err) {
         console.error('更新用户信息失败:', err)
       }
-    } else if (wechatOpenId) {
-      // 只有 openid，尝试查找已有用户
+    } else if (userId) {
+      // 只有用户ID，尝试查找已有用户
       try {
-        user = await this.userService.findByWechatId(wechatOpenId)
+        user = await this.userService.findByWechatId(userId)
+        console.log('查找到已有用户:', user)
       } catch (err) {
         console.error('查找用户失败:', err)
       }
@@ -77,6 +82,7 @@ export class AuthController {
     // 如果没有用户信息，返回默认用户
     if (!user) {
       user = await this.userService.findOne('default_user')
+      console.log('使用默认用户:', user)
     }
 
     return {

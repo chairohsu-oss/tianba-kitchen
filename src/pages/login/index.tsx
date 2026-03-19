@@ -6,8 +6,27 @@ import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
 
-// 默认头像
-const DEFAULT_AVATAR = 'https://picsum.photos/100?random=default'
+// 默认头像（固定图片，不使用随机URL）
+const DEFAULT_AVATAR = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
+
+// 生成UUID
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+// 获取或创建设备ID
+const getOrCreateDeviceId = () => {
+  let deviceId = Taro.getStorageSync('tianba_device_id')
+  if (!deviceId) {
+    deviceId = `device_${generateUUID()}`
+    Taro.setStorageSync('tianba_device_id', deviceId)
+  }
+  return deviceId
+}
 
 const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
@@ -93,12 +112,17 @@ const LoginPage: FC = () => {
         }
       }
 
+      // 获取设备ID（用于在没有微信openid时标识用户）
+      const deviceId = getOrCreateDeviceId()
+      console.log('设备ID:', deviceId)
+
       const result = await Network.request({
         url: '/api/auth/login',
         method: 'POST',
         data: { 
           password: password.trim(),
           code: wechatCode || undefined,
+          deviceId: deviceId,
           nickname: nickname.trim() || undefined,
           avatarUrl: avatarUrl || undefined
         }
