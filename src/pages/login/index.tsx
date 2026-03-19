@@ -1,7 +1,7 @@
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text, Input, Button, Image } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Lock, ChefHat, Eye, EyeOff } from 'lucide-react-taro'
+import { Lock, ChefHat, Eye, EyeOff, User } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -11,24 +11,14 @@ const LoginPage: FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const isH5 = Taro.getEnv() !== Taro.ENV_TYPE.WEAPP
+  const [wechatUserInfo, setWechatUserInfo] = useState<{ nickName: string; avatarUrl: string } | null>(null)
+  const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 
   // 检查是否已经登录
   useEffect(() => {
-    // H5端：检测是否需要显示安装引导页
-    if (isH5) {
-      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone === true
-      
-      // 如果不是PWA模式（standalone），跳转到安装引导页
-      if (!isInStandaloneMode) {
-        Taro.redirectTo({ url: '/pages/install/index' })
-        return
-      }
-    }
-    
+    // H5端：不再跳转到安装引导页，直接显示登录页
     checkLoginStatus()
-  }, [isH5])
+  }, [])
 
   const checkLoginStatus = async () => {
     try {
@@ -65,6 +55,38 @@ const LoginPage: FC = () => {
     }
   }
 
+  // 获取微信用户信息（小程序端）
+  const getWechatUserInfo = async () => {
+    if (!isWeapp) return null
+    
+    try {
+      // 先检查是否已授权
+      const setting = await Taro.getSetting()
+      if (setting.authSetting['scope.userInfo']) {
+        // 已授权，直接获取用户信息
+        const userInfo = await Taro.getUserInfo()
+        return {
+          nickName: userInfo.userInfo.nickName,
+          avatarUrl: userInfo.userInfo.avatarUrl
+        }
+      }
+      return null
+    } catch (err) {
+      console.error('获取微信用户信息失败:', err)
+      return null
+    }
+  }
+
+  // 微信登录按钮回调
+  const handleGetUserInfo = async (e: any) => {
+    if (e.detail.userInfo) {
+      setWechatUserInfo({
+        nickName: e.detail.userInfo.nickName,
+        avatarUrl: e.detail.userInfo.avatarUrl
+      })
+    }
+  }
+
   const handleLogin = async () => {
     if (!password.trim()) {
       setError('请输入密码')
@@ -75,19 +97,34 @@ const LoginPage: FC = () => {
     setError('')
 
     try {
+      // 小程序端：获取微信用户信息
+      let wechatInfo = wechatUserInfo
+      if (isWeapp && !wechatInfo) {
+        wechatInfo = await getWechatUserInfo()
+      }
+
       const result = await Network.request({
         url: '/api/auth/login',
         method: 'POST',
-        data: { password: password.trim() }
+        data: { 
+          password: password.trim(),
+          nickname: wechatInfo?.nickName,
+          avatarUrl: wechatInfo?.avatarUrl
+        }
       })
 
       if ((result as any).data?.code === 200) {
         // 登录成功，保存状态和令牌
         const token = (result as any).data?.data?.token
+        const userData = (result as any).data?.data?.user
+        
         Taro.setStorageSync('tianba_logged_in', 'true')
         Taro.setStorageSync('tianba_login_time', Date.now().toString())
         if (token) {
           Taro.setStorageSync('tianba_token', token)
+        }
+        if (userData) {
+          Taro.setStorageSync('tianba_user', JSON.stringify(userData))
         }
         
         Taro.showToast({ title: '欢迎来到天霸私厨', icon: 'success' })
@@ -121,6 +158,36 @@ const LoginPage: FC = () => {
       {/* 登录表单 */}
       <View className="login-form">
         <View className="form-title">请输入访问密码</View>
+        
+        {/* 小程序端：微信用户信息授权 */}
+        {isWeapp && !wechatUserInfo && (
+          <View className="mb-4">
+            <Button
+              className="w-full flex flex-row items-center justify-center gap-2 py-3 rounded-xl border border-orange-200 bg-orange-50"
+              openType="getUserInfo"
+              onGetUserInfo={handleGetUserInfo}
+            >
+              <User size={18} color="#F97316" />
+              <Text className="text-orange-500 text-sm">获取微信头像和昵称</Text>
+            </Button>
+            <Text className="text-xs text-gray-400 text-center mt-1">可选，用于在美味记录中展示</Text>
+          </View>
+        )}
+
+        {/* 已获取的微信用户信息展示 */}
+        {isWeapp && wechatUserInfo && (
+          <View className="mb-4 flex flex-row items-center gap-3 p-3 bg-orange-50 rounded-xl">
+            <Image
+              className="w-12 h-12 rounded-full"
+              src={wechatUserInfo.avatarUrl}
+              mode="aspectFill"
+            />
+            <View className="flex-1">
+              <Text className="text-sm font-medium text-gray-800">{wechatUserInfo.nickName}</Text>
+              <Text className="text-xs text-green-600">✓ 已获取微信信息</Text>
+            </View>
+          </View>
+        )}
         
         <View className="input-container">
           <Lock size={20} color="#9CA3AF" className="input-icon" />

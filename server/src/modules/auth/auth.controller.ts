@@ -1,16 +1,20 @@
 import { Controller, Post, Get, Body, Headers, BadRequestException } from '@nestjs/common'
 import { AuthService } from './auth.service'
+import { UserService, User } from '../user/user.service'
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService
+  ) {}
 
   /**
    * 登录验证
    */
   @Post('login')
-  async login(@Body() body: { password: string }) {
-    const { password } = body
+  async login(@Body() body: { password: string; nickname?: string; avatarUrl?: string }) {
+    const { password, nickname, avatarUrl } = body
 
     if (!password) {
       throw new BadRequestException('请输入密码')
@@ -30,12 +34,30 @@ export class AuthController {
     // 生成访问令牌
     const token = this.authService.generateToken()
 
+    // 如果有昵称，更新用户信息
+    let user: User | null = null
+    if (nickname) {
+      try {
+        user = await this.userService.createOrUpdate({
+          wechatId: `wechat_${Date.now()}`,
+          nickname,
+          avatarUrl,
+        })
+      } catch (err) {
+        console.error('更新用户信息失败:', err)
+      }
+    } else {
+      // 返回默认用户
+      user = await this.userService.findOne('default_user')
+    }
+
     return {
       code: 200,
       msg: 'success',
       data: {
         verified: true,
         token,
+        user,
       },
     }
   }

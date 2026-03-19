@@ -81,6 +81,22 @@ const RecordsPage: FC = () => {
       return
     }
     
+    // 获取本地存储的用户信息
+    const storedUser = Taro.getStorageSync('tianba_user')
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        setCurrentUser({
+          id: userData.id,
+          nickname: userData.nickname,
+          avatarUrl: (userData as any).avatar_url || userData.avatarUrl,
+          role: userData.role
+        })
+      } catch (e) {
+        console.error('解析用户信息失败:', e)
+      }
+    }
+    
     fetchData()
   }, [])
 
@@ -237,6 +253,31 @@ const RecordsPage: FC = () => {
     return `${month}月${day}日 ${weekday}`
   }
 
+  // 格式化日期为 YYYY-MM-DD（用于比较）
+  const formatDateOnly = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // 获取今日日期字符串
+  const getTodayDate = () => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // 计算今日热量
+  const getTodayCalories = () => {
+    const today = getTodayDate()
+    const todayRecords = records.filter(r => formatDateOnly(r.date) === today)
+    return todayRecords.reduce((sum, r) => sum + r.totalCalories, 0)
+  }
+
   // 格式化时间
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -291,7 +332,7 @@ const RecordsPage: FC = () => {
                 <Text className="text-sm text-gray-600">今日热量</Text>
               </View>
               <Text className="text-2xl font-bold text-orange-500 mt-1">
-                {records.reduce((sum, r) => sum + r.totalCalories, 0)}
+                {getTodayCalories()}
               </Text>
               <Text className="text-xs text-gray-400">千卡</Text>
             </View>
