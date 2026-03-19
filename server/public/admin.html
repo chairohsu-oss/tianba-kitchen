@@ -25,6 +25,37 @@
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+  <!-- 登录界面 -->
+  <div id="login-container" class="hidden min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+      <div class="text-center mb-6">
+        <span class="text-4xl">🍳</span>
+        <h1 class="text-2xl font-bold text-gray-800 mt-2">天霸家厨房</h1>
+        <p class="text-gray-500 text-sm mt-1">管理后台登录</p>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">管理密码</label>
+          <input 
+            type="password" 
+            id="admin-password" 
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="请输入管理密码"
+          >
+        </div>
+        <button 
+          onclick="adminLogin()"
+          class="w-full bg-orange-500 text-white py-3 rounded-lg hover:bg-orange-600 transition font-medium"
+        >
+          登录
+        </button>
+      </div>
+      <p class="text-center text-gray-400 text-xs mt-6">
+        默认密码：tianbajia
+      </p>
+    </div>
+  </div>
+
   <div id="app">
     <!-- 顶部导航 -->
     <header class="bg-white shadow-sm">
@@ -35,6 +66,10 @@
         </div>
         <div class="flex items-center gap-4">
           <span id="stats-info" class="text-sm text-gray-500"></span>
+          <button onclick="adminLogout()" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            退出
+          </button>
         </div>
       </div>
     </header>
@@ -552,7 +587,7 @@
       if (name) params.append('name', name)
 
       try {
-        const response = await fetch(`${API_BASE}/dishes?${params}`)
+        const response = await authFetch(`${API_BASE}/dishes?${params}`)
         const result = await response.json()
         dishes = result.data || []
         renderDishes()
@@ -566,7 +601,7 @@
     // 加载用户列表
     async function loadUsers() {
       try {
-        const response = await fetch(`${API_BASE}/users`)
+        const response = await authFetch(`${API_BASE}/users`)
         const result = await response.json()
         users = result.data || []
         renderUsers()
@@ -584,7 +619,7 @@
       if (status) params.append('status', status)
 
       try {
-        const response = await fetch(`${API_BASE}/orders?${params}`)
+        const response = await authFetch(`${API_BASE}/orders?${params}`)
         const result = await response.json()
         orders = result.data || []
         renderOrders()
@@ -597,7 +632,7 @@
     // 加载验证码列表
     async function loadVerificationCodes() {
       try {
-        const response = await fetch(`${API_BASE}/users/verification-codes/all`)
+        const response = await authFetch(`${API_BASE}/users/verification-codes/all`)
         const result = await response.json()
         verificationCodes = result.data || []
         renderVerificationCodes()
@@ -816,7 +851,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/users/verification-codes`, {
+        const response = await authFetch(`${API_BASE}/users/verification-codes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, description })
@@ -842,7 +877,7 @@
       if (!confirm(`确定要删除验证码 "${code}" 吗？`)) return
 
       try {
-        const response = await fetch(`${API_BASE}/users/verification-codes/${encodeURIComponent(code)}`, {
+        const response = await authFetch(`${API_BASE}/users/verification-codes/${encodeURIComponent(code)}`, {
           method: 'DELETE'
         })
         
@@ -864,7 +899,7 @@
       if (!confirm('确定要通过该用户的验证吗？')) return
 
       try {
-        const response = await fetch(`${API_BASE}/users/${userId}/verify`, {
+        const response = await authFetch(`${API_BASE}/users/${userId}/verify`, {
           method: 'POST'
         })
         
@@ -886,7 +921,7 @@
       if (!confirm('确定要删除该用户吗？此操作不可恢复。')) return
 
       try {
-        const response = await fetch(`${API_BASE}/users/${userId}`, {
+        const response = await authFetch(`${API_BASE}/users/${userId}`, {
           method: 'DELETE'
         })
         
@@ -908,7 +943,7 @@
       if (!confirm('确定要重置该用户的验证状态吗？用户将需要重新验证。')) return
 
       try {
-        const response = await fetch(`${API_BASE}/users/${userId}/reset-verification`, {
+        const response = await authFetch(`${API_BASE}/users/${userId}/reset-verification`, {
           method: 'POST'
         })
         
@@ -995,7 +1030,7 @@
         const url = id ? `${API_BASE}/dishes/${id}` : `${API_BASE}/dishes`
         const method = id ? 'PUT' : 'POST'
         
-        const response = await fetch(url, {
+        const response = await authFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
@@ -1049,7 +1084,7 @@
       const role = document.getElementById('edit-user-role').value
 
       try {
-        const response = await fetch(`${API_BASE}/users/${userId}/role`, {
+        const response = await authFetch(`${API_BASE}/users/${userId}/role`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role })
@@ -1137,7 +1172,7 @@
       if (!deleteDishId) return
       
       try {
-        const response = await fetch(`${API_BASE}/dishes/${deleteDishId}`, { method: 'DELETE' })
+        const response = await authFetch(`${API_BASE}/dishes/${deleteDishId}`, { method: 'DELETE' })
         const result = await response.json()
         if (result.code === 200) {
           closeDeleteModal()
@@ -1190,8 +1225,122 @@
       if (e.target === this) closeDeleteModal()
     })
 
+    // 页面加载时检查登录状态
+    window.onload = function() {
+      checkLoginAndInit()
+    }
+
+    // 检查登录状态并初始化
+    function checkLoginAndInit() {
+      const adminToken = localStorage.getItem('admin_token')
+      if (adminToken) {
+        // 验证 token 是否有效
+        fetch(`${API_BASE}/auth/check`, {
+          headers: { 'x-tianba-token': adminToken }
+        })
+        .then(res => res.json())
+        .then(result => {
+          if (result.data?.verified) {
+            // 已登录，显示主界面
+            showMainContent()
+            loadDishes()
+          } else {
+            // token 无效，显示登录界面
+            showLoginContent()
+          }
+        })
+        .catch(() => {
+          showLoginContent()
+        })
+      } else {
+        showLoginContent()
+      }
+    }
+
+    // 显示登录界面
+    function showLoginContent() {
+      document.getElementById('login-container').classList.remove('hidden')
+      document.getElementById('app').classList.add('hidden')
+    }
+
+    // 显示主界面
+    function showMainContent() {
+      document.getElementById('login-container').classList.add('hidden')
+      document.getElementById('app').classList.remove('hidden')
+    }
+
+    // 登录
+    async function adminLogin() {
+      const password = document.getElementById('admin-password').value
+      if (!password) {
+        alert('请输入管理密码')
+        return
+      }
+
+      try {
+        const response = await authFetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        })
+        
+        const result = await response.json()
+        if (result.code === 200 && result.data?.token) {
+          localStorage.setItem('admin_token', result.data.token)
+          showMainContent()
+          loadDishes()
+        } else {
+          alert('密码错误')
+        }
+      } catch (error) {
+        console.error('登录失败:', error)
+        alert('登录失败，请检查后端服务')
+      }
+    }
+
+    // 退出登录
+    function adminLogout() {
+      localStorage.removeItem('admin_token')
+      showLoginContent()
+      document.getElementById('admin-password').value = ''
+    }
+
+    // 添加 token 到请求头
+    function getAuthHeaders() {
+      const token = localStorage.getItem('admin_token')
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers['x-tianba-token'] = token
+      }
+      return headers
+    }
+
+    // 带认证的 fetch 封装
+    async function authFetch(url, options = {}) {
+      const token = localStorage.getItem('admin_token')
+      const headers = {
+        ...options.headers,
+      }
+      if (token) {
+        headers['x-tianba-token'] = token
+      }
+      return fetch(url, { ...options, headers })
+    }
+
+    // 监听登录输入框回车
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById('admin-password')
+      if (passwordInput) {
+        passwordInput.addEventListener('keyup', function(e) {
+          if (e.keyCode === 13) {
+            adminLogin()
+          }
+        })
+      }
+    })
+
     // 页面加载时获取数据
-    loadDishes()
+    // loadDishes() 移到登录验证后执行
   </script>
 </body>
 </html>
