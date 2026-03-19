@@ -213,7 +213,7 @@ const EditDishPage: FC = () => {
         </Text>
       </View>
 
-      <ScrollView scrollY style={{ paddingTop: '48px', paddingBottom: '100px' }}>
+      <ScrollView scrollY style={{ paddingTop: '48px', paddingBottom: '100px', height: 'calc(100vh - 180px)' }}>
         {/* 菜品照片 */}
         <View className="bg-white px-4 py-4 mb-2">
           <Text className="block text-sm font-medium text-gray-800 mb-3">📸 菜品照片</Text>

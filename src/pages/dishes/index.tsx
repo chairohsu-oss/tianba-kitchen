@@ -287,14 +287,15 @@ const DishesPage: FC = () => {
 
   return (
     <View 
-      className="flex flex-col bg-white overflow-hidden"
+      className="flex flex-col bg-white"
       style={{ 
         position: 'fixed', 
         top: 0, 
         left: 0, 
         right: 0, 
         bottom: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? 0 : 80,
-        width: '100vw'
+        width: '100vw',
+        height: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '100vh' : 'calc(100vh - 80px)'
       }}
     >
       {/* 主内容区域 */}
@@ -357,7 +358,7 @@ const DishesPage: FC = () => {
           <ScrollView 
             scrollY 
             scrollX={false}
-            className="flex-1"
+            style={{ height: '100%', flex: 1 }}
           >
             {loading ? (
               <View className="flex flex-col items-center justify-center py-16">

@@ -520,7 +520,7 @@ const AddDishPage: FC = () => {
         </View>
       )}
 
-      <ScrollView scrollY style={{ height: 'calc(100vh - 80px)' }}>
+      <ScrollView scrollY style={{ height: 'calc(100vh - 180px)' }}>
         {/* A模块：上传菜品照片 */}
         <View className="bg-white px-4 py-4 mb-2">
           <Text className="block text-sm font-medium text-gray-800 mb-3">📸 菜品照片</Text>
@@ -639,10 +639,10 @@ const AddDishPage: FC = () => {
           )}
           
           {/* 对话框 */}
-          <View className="bg-gray-50 rounded-xl p-3 mb-3" style={{ minHeight: '150px', maxHeight: '300px' }}>
+          <View className="bg-gray-50 rounded-xl p-3 mb-3" style={{ height: '200px' }}>
             <ScrollView 
               scrollY 
-              className="h-full"
+              style={{ height: '100%' }}
               scrollIntoView={scrollViewRef.current}
               scrollWithAnimation
             >
