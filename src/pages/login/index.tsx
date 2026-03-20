@@ -6,6 +6,9 @@ import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
 
+// 缓存版本号 - 修改此值可强制清除旧缓存
+const CACHE_VERSION = '2026-03-20-v3'
+
 // 默认头像（微信默认灰色头像）
 const DEFAULT_AVATAR = 'https://mmbiz.qpic.cn/mmbiz/icTdbqWNOwNRna42FI242Lcia07jQodd2FJGIYQfG0LAJGFxM4FbnQP6yfMxBgJ0F3YRqJCJ1aPAK2dQagdusBZg/0'
 
@@ -89,6 +92,15 @@ const LoginPage: FC = () => {
 
   const checkLoginStatus = async () => {
     try {
+      // 检查缓存版本，如果版本不匹配则清除所有缓存
+      const cachedVersion = Taro.getStorageSync('tianba_cache_version')
+      if (cachedVersion !== CACHE_VERSION) {
+        console.log('缓存版本不匹配，清除旧缓存...')
+        Taro.clearStorageSync()
+        Taro.setStorageSync('tianba_cache_version', CACHE_VERSION)
+        console.log('缓存已清除，新版本:', CACHE_VERSION)
+      }
+      
       // 从本地存储获取登录状态
       const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
       const loginTime = Taro.getStorageSync('tianba_login_time')
@@ -247,11 +259,15 @@ const LoginPage: FC = () => {
           Taro.switchTab({ url: '/pages/home/index' })
         }, 500)
       } else {
-        setError('密码错误，请重试')
+        // 显示后端返回的错误信息
+        const errorMsg = (result as any).data?.msg || '密码错误，请重试'
+        setError(errorMsg)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('登录失败:', err)
-      setError('登录失败，请重试')
+      // 显示更详细的错误信息
+      const errMsg = err?.errMsg || err?.message || '网络请求失败，请检查网络连接'
+      setError(errMsg)
     } finally {
       setLoading(false)
     }
@@ -272,7 +288,7 @@ const LoginPage: FC = () => {
       <View className="login-form">
         <View className="form-title">请输入访问密码</View>
         
-        {/* 小程序端：用户信息填写区域 */}
+        {/* 小程序端：头像选择 */}
         {isWeapp && (
           <View className="user-info-section">
             {/* 头像选择 */}
@@ -307,25 +323,25 @@ const LoginPage: FC = () => {
                 </View>
               </Button>
             </View>
-            
-            {/* 昵称输入 */}
-            <View className="nickname-container">
-              <Text className="nickname-label">昵称</Text>
-              <Input
-                className="nickname-input"
-                type="nickname"
-                placeholder="请输入您的昵称"
-                value={nickname}
-                onInput={handleNicknameInput}
-                maxlength={20}
-              />
-            </View>
-            
-            <Text className="user-hint">
-              设置头像和昵称后，将展示在美味记录中
-            </Text>
           </View>
         )}
+        
+        {/* 所有平台：昵称输入 */}
+        <View className="nickname-container" style={{ marginTop: isWeapp ? '0' : '16px' }}>
+          <Text className="nickname-label">昵称</Text>
+          <Input
+            className="nickname-input"
+            type="text"
+            placeholder="请输入您的昵称"
+            value={nickname}
+            onInput={handleNicknameInput}
+            maxlength={20}
+          />
+        </View>
+        
+        <Text className="user-hint">
+          {isWeapp ? '设置头像和昵称后，将展示在美味记录中' : '设置昵称后，将展示在美味记录中'}
+        </Text>
         
         <View className="input-container">
           <Lock size={20} color="#9CA3AF" className="input-icon" />
