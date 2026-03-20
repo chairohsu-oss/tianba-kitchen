@@ -268,7 +268,7 @@ export class UserService implements OnModuleInit {
 
   /**
    * 创建或更新用户
-   * 优先使用微信openid，其次使用昵称作为唯一标识
+   * 优先使用昵称作为唯一标识（因为用户可能在不同设备登录）
    */
   async createOrUpdate(data: {
     wechatId?: string
@@ -280,22 +280,25 @@ export class UserService implements OnModuleInit {
       ? data.avatarUrl 
       : undefined
     
-    // 查找是否已存在（优先用wechatId，其次用nickname）
+    // 优先用昵称查找用户（确保同一昵称始终对应同一用户）
     let user: User | null = null
     
-    if (data.wechatId) {
-      user = await this.findByWechatId(data.wechatId)
+    if (data.nickname) {
+      user = await this.findByNickname(data.nickname)
+      console.log('通过昵称查找用户:', data.nickname, '结果:', user ? user.id : '未找到')
     }
     
-    // 如果没有通过wechatId找到，尝试用昵称查找
-    if (!user && data.nickname) {
-      user = await this.findByNickname(data.nickname)
+    // 如果昵称没找到，再用wechatId查找
+    if (!user && data.wechatId) {
+      user = await this.findByWechatId(data.wechatId)
+      console.log('通过wechatId查找用户:', data.wechatId, '结果:', user ? user.id : '未找到')
     }
     
     const userAny = user as any
     
     if (user) {
       // 更新用户信息（保留原有的角色和权限）
+      console.log('更新已有用户，保留角色:', userAny.role)
       const { data: updated, error } = await this.client
         .from('users')
         .update({

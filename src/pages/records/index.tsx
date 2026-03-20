@@ -479,6 +479,7 @@ const RecordsPage: FC = () => {
               </View>
               <View className="flex flex-col">
                 <Text className="text-base font-semibold text-gray-800">{currentUser.nickname}</Text>
+                <Text className="text-xs text-gray-400">ID: {currentUser.id.slice(0, 8)}...</Text>
                 <View className={`self-start px-2 py-0.5 rounded-full mt-1 ${roleColors[currentUser.role] || 'bg-gray-100 text-gray-700'}`}>
                   <Text className="text-xs">{roleMap[currentUser.role] || currentUser.role}</Text>
                 </View>
