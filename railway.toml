@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm build:web && pnpm build:server"
+
+[deploy]
+startCommand = "cd server && node dist/main.js"
+healthcheckPath = "/api/dishes"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
