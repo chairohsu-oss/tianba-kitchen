@@ -6,6 +6,14 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
 function parsePort(): number {
+  // 优先从环境变量读取（Railway 部署需要）
+  if (process.env.PORT) {
+    const port = parseInt(process.env.PORT, 10);
+    if (!isNaN(port) && port > 0 && port < 65536) {
+      return port;
+    }
+  }
+  // 其次从命令行参数读取
   const args = process.argv.slice(2);
   const portIndex = args.indexOf('-p');
   if (portIndex !== -1 && args[portIndex + 1]) {
