@@ -133,7 +133,10 @@ start_service() {
     # 启动 Taro H5 和 NestJS Server
     echo "Starting Taro H5 Dev Server and NestJS Server..."
 
-    export PORT=${DEPLOY_RUN_PORT}
+    # 启动 Taro H5 和 NestJS Server
+    # 注意：不设置 PORT 环境变量，让 NestJS 默认使用 3000 端口
+    # 前端 H5 使用 DEPLOY_RUN_PORT (5000)，后端使用默认 3000
+
     rm -f /tmp/coze-logs/dev.log
     mkdir -p /tmp/coze-logs
 
