@@ -61,6 +61,11 @@ export class AuthController {
     const hasUserInfo = nickname
     let user: User | null = null
     
+    console.log('===== 登录请求 =====')
+    console.log('昵称:', nickname)
+    console.log('微信OpenID:', wechatOpenId || '无')
+    console.log('设备ID:', deviceId || '无')
+    
     if (hasUserInfo) {
       try {
         // 使用昵称作为唯一标识，wechatId可选
@@ -69,7 +74,10 @@ export class AuthController {
           nickname: nickname!,
           avatarUrl,
         })
-        console.log('创建/更新用户成功:', user?.nickname, '角色:', (user as any)?.role)
+        console.log('创建/更新用户结果:')
+        console.log('  - 用户ID:', user?.id)
+        console.log('  - 昵称:', user?.nickname)
+        console.log('  - 角色:', (user as any)?.role)
       } catch (err) {
         console.error('更新用户信息失败:', err)
       }
@@ -77,7 +85,7 @@ export class AuthController {
       // 只有用户标识，尝试查找已有用户
       try {
         user = await this.userService.findByWechatId(userIdentifier)
-        console.log('查找到已有用户:', user)
+        console.log('通过微信ID找到用户:', user?.nickname)
       } catch (err) {
         console.error('查找用户失败:', err)
       }

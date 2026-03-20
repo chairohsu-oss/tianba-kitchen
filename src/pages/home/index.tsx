@@ -47,7 +47,7 @@ const HomePage: FC = () => {
   const [isCancelling, setIsCancelling] = useState(false)
   
   // 当前用户信息
-  const [currentUser, setCurrentUser] = useState<{ nickname: string; avatarUrl: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: string; nickname: string; avatarUrl: string; role: string } | null>(null)
 
   const scrollViewRef = useRef<string>('')
   const isLoadingRef = useRef(false)
@@ -67,8 +67,10 @@ const HomePage: FC = () => {
       try {
         const userData = JSON.parse(storedUser)
         setCurrentUser({
+          id: userData.id,
           nickname: userData.nickname,
-          avatarUrl: (userData as any).avatar_url || userData.avatarUrl
+          avatarUrl: (userData as any).avatar_url || userData.avatarUrl,
+          role: userData.role
         })
         
         // 从后端获取最新用户信息
@@ -91,8 +93,10 @@ const HomePage: FC = () => {
         console.log('从后端获取最新用户信息:', latestUser)
         // 更新状态
         setCurrentUser({
+          id: latestUser.id,
           nickname: latestUser.nickname,
-          avatarUrl: latestUser.avatarUrl
+          avatarUrl: latestUser.avatarUrl,
+          role: latestUser.role
         })
         // 更新本地存储
         Taro.setStorageSync('tianba_user', JSON.stringify(latestUser))
