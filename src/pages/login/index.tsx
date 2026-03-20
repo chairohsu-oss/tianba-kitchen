@@ -213,10 +213,20 @@ const LoginPage: FC = () => {
         }
       })
 
+      // 打印完整返回结果便于调试
+      console.log('===== 登录接口返回 =====')
+      console.log('完整结果:', JSON.stringify(result))
+      console.log('result.data:', JSON.stringify((result as any).data))
+      console.log('result.data.data:', JSON.stringify((result as any).data?.data))
+      console.log('result.data.data.user:', JSON.stringify((result as any).data?.data?.user))
+
       if ((result as any).data?.code === 200) {
         // 登录成功，保存状态和令牌
         const token = (result as any).data?.data?.token
         const userData = (result as any).data?.data?.user
+        
+        console.log('准备保存的用户数据:', JSON.stringify(userData))
+        console.log('用户角色:', userData?.role)
         
         Taro.setStorageSync('tianba_logged_in', 'true')
         Taro.setStorageSync('tianba_login_time', Date.now().toString())
@@ -225,6 +235,9 @@ const LoginPage: FC = () => {
         }
         if (userData) {
           Taro.setStorageSync('tianba_user', JSON.stringify(userData))
+          // 验证保存成功
+          const savedUser = Taro.getStorageSync('tianba_user')
+          console.log('保存后读取的用户数据:', savedUser)
         }
         
         Taro.showToast({ title: '欢迎来到天霸私厨', icon: 'success' })
