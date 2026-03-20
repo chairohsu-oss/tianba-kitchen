@@ -250,10 +250,28 @@ export class UserService implements OnModuleInit {
   }
 
   /**
+   * 根据昵称获取用户
+   */
+  async findByNickname(nickname: string): Promise<User | null> {
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .eq('nickname', nickname)
+      .single()
+
+    if (error) {
+      return null
+    }
+
+    return this.transformUser(data)
+  }
+
+  /**
    * 创建或更新用户
+   * 优先使用微信openid，其次使用昵称作为唯一标识
    */
   async createOrUpdate(data: {
-    wechatId: string
+    wechatId?: string
     nickname: string
     avatarUrl?: string
   }): Promise<User> {
@@ -262,15 +280,27 @@ export class UserService implements OnModuleInit {
       ? data.avatarUrl 
       : undefined
     
-    // 查找是否已存在
-    let user = await this.findByWechatId(data.wechatId)
+    // 查找是否已存在（优先用wechatId，其次用nickname）
+    let user: User | null = null
+    
+    if (data.wechatId) {
+      user = await this.findByWechatId(data.wechatId)
+    }
+    
+    // 如果没有通过wechatId找到，尝试用昵称查找
+    if (!user && data.nickname) {
+      user = await this.findByNickname(data.nickname)
+    }
+    
     const userAny = user as any
     
     if (user) {
-      // 更新用户信息
+      // 更新用户信息（保留原有的角色和权限）
       const { data: updated, error } = await this.client
         .from('users')
         .update({
+          // 如果有wechatId，更新wechatId
+          wechat_id: data.wechatId || userAny.wechatId,
           nickname: data.nickname,
           // 只有有效的头像URL才更新，否则保留原来的
           avatar_url: validAvatarUrl || userAny.avatarUrl,
@@ -284,6 +314,7 @@ export class UserService implements OnModuleInit {
         console.error('更新用户失败:', error)
         return user
       }
+      console.log('更新用户成功:', updated.nickname, '角色:', updated.role)
       return this.transformUser(updated)
     } else {
       // 创建新用户，默认为客人，密码验证通过即视为已验证
@@ -293,7 +324,7 @@ export class UserService implements OnModuleInit {
       const { data: newUser, error } = await this.client
         .from('users')
         .insert({
-          wechat_id: data.wechatId,
+          wechat_id: data.wechatId || `user_${Date.now()}`,
           nickname: data.nickname,
           avatar_url: validAvatarUrl || defaultAvatar,
           role: 'guest',
@@ -306,6 +337,7 @@ export class UserService implements OnModuleInit {
         console.error('创建用户失败:', error)
         throw new Error('创建用户失败')
       }
+      console.log('创建新用户:', newUser.nickname)
       return this.transformUser(newUser)
     }
   }

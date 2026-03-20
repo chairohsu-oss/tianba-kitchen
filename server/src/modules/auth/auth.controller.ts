@@ -54,28 +54,29 @@ export class AuthController {
 
     // 用户标识：优先使用微信openid，其次使用设备ID
     // 如果都没有，生成一个临时ID
-    const userId = wechatOpenId || deviceId || `temp_${Date.now()}`
+    const userIdentifier = wechatOpenId || deviceId || ''
     
     // 判断是否需要创建/更新用户
-    // 条件：有用户标识，且（有昵称 或 有头像）
-    const hasUserInfo = nickname || avatarUrl
+    // 条件：有昵称（用于唯一标识用户）
+    const hasUserInfo = nickname
     let user: User | null = null
     
-    if (userId && hasUserInfo) {
+    if (hasUserInfo) {
       try {
+        // 使用昵称作为唯一标识，wechatId可选
         user = await this.userService.createOrUpdate({
-          wechatId: userId,
-          nickname: nickname || '新用户',  // 如果没有昵称，使用默认昵称
+          wechatId: userIdentifier || undefined,
+          nickname: nickname!,
           avatarUrl,
         })
-        console.log('创建/更新用户成功:', user)
+        console.log('创建/更新用户成功:', user?.nickname, '角色:', (user as any)?.role)
       } catch (err) {
         console.error('更新用户信息失败:', err)
       }
-    } else if (userId) {
-      // 只有用户ID，尝试查找已有用户
+    } else if (userIdentifier) {
+      // 只有用户标识，尝试查找已有用户
       try {
-        user = await this.userService.findByWechatId(userId)
+        user = await this.userService.findByWechatId(userIdentifier)
         console.log('查找到已有用户:', user)
       } catch (err) {
         console.error('查找用户失败:', err)

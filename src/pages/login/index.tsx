@@ -165,6 +165,12 @@ const LoginPage: FC = () => {
       return
     }
 
+    // 小程序端必须填写昵称
+    if (isWeapp && !nickname.trim()) {
+      setError('请输入您的昵称')
+      return
+    }
+
     // 如果正在上传头像，等待完成
     if (uploadingAvatar) {
       Taro.showToast({ title: '头像上传中，请稍候', icon: 'none' })
