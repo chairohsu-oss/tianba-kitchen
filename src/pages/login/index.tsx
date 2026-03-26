@@ -1,7 +1,7 @@
 import { View, Text, Input } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { Lock, ChefHat, Eye, EyeOff } from 'lucide-react-taro'
+import { Lock, ChefHat, Eye, EyeOff, Loader } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
 import './index.css'
@@ -9,11 +9,15 @@ import './index.css'
 // 缓存版本号 - 修改此值可强制清除旧缓存
 const CACHE_VERSION = '2026-03-21-v4'
 
+// 超时时间（毫秒）
+const REQUEST_TIMEOUT = 5000
+
 const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isChecking, setIsChecking] = useState(true) // 是否正在检查登录状态
 
   // 检查是否已经登录
   useEffect(() => {
@@ -47,20 +51,30 @@ const LoginPage: FC = () => {
         }
       }
       
-      // 检查后端验证状态
-      const result = await Network.request({
+      // 检查后端验证状态（带超时）
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('请求超时')), REQUEST_TIMEOUT)
+      })
+      
+      const requestPromise = Network.request({
         url: '/api/auth/check'
       })
       
-      if ((result as any).data?.data?.verified) {
+      const result = await Promise.race([requestPromise, timeoutPromise]) as any
+      
+      if (result?.data?.data?.verified) {
         // 后端已验证，保存本地状态并跳转
         Taro.setStorageSync('tianba_logged_in', 'true')
         Taro.setStorageSync('tianba_login_time', Date.now().toString())
         Taro.switchTab({ url: '/pages/home/index' })
+        return
       }
     } catch (err) {
-      // 未验证，显示登录页面
-      console.log('用户未验证，显示登录页面')
+      // 网络请求失败或超时，显示登录页面
+      console.log('检查登录状态失败:', err)
+    } finally {
+      // 无论成功失败，都停止检查状态
+      setIsChecking(false)
     }
   }
 
@@ -119,6 +133,16 @@ const LoginPage: FC = () => {
 
   return (
     <View className="login-page">
+      {/* 正在检查登录状态 */}
+      {isChecking && (
+        <View className="checking-overlay">
+          <View className="checking-content">
+            <Loader size={32} color="#F97316" className="animate-spin" />
+            <Text className="checking-text">正在加载...</Text>
+          </View>
+        </View>
+      )}
+      
       {/* 顶部装饰 */}
       <View className="login-header">
         <View className="logo-container">

@@ -10,7 +10,15 @@ import devConfig from './dev';
 import prodConfig from './prod';
 import pkg from '../package.json';
 
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+// 加载环境变量
+const envPath = process.env.NODE_ENV === 'production' 
+  ? path.resolve(__dirname, '../.env.production')
+  : path.resolve(__dirname, '../.env.local');
+
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+  console.log(`✓ Loaded env from ${envPath}`);
+}
 
 const generateTTProjectConfig = () => {
   const config = {

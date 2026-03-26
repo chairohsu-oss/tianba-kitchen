@@ -5,6 +5,46 @@
   flex-direction: column;
   padding: 0 24px;
   box-sizing: border-box;
+  position: relative;
+}
+
+/* 检查登录状态的遮罩层 */
+.checking-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 50%, #FFF7ED 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.checking-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.checking-text {
+  font-size: 14px;
+  color: #6B7280;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
 .login-header {
