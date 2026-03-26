@@ -421,6 +421,7 @@ const AddDishPage: FC = () => {
     }
     setIsCancelling(false)
   }
+  }
 
   const handleTouchMove = (e: any) => {
     if (isRecording) {
