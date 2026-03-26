@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro, { useRouter } from '@tarojs/taro'
 import { Mic, Keyboard, Camera, Image as ImageIcon, X, Loader, Plus, Send, ChefHat, User, Sparkles, Check, ArrowLeft } from 'lucide-react-taro'
 import { Network } from '@/network'
+import { H5Recorder, blobToBase64 } from '@/utils/h5-recorder'
 import type { FC } from 'react'
 import './index.css'
 
@@ -70,7 +71,10 @@ const AddDishPage: FC = () => {
   const [touchStartY, setTouchStartY] = useState(0)
   const [isCancelling, setIsCancelling] = useState(false)
   const recorderManagerRef = useRef<Taro.RecorderManager | null>(null)
+  const h5RecorderRef = useRef<H5Recorder | null>(null)
   const scrollViewRef = useRef<string>('')
+  const isCancellingRef = useRef(false)
+  const handleH5VoiceInputRef = useRef<(audioBlob: Blob) => void>(() => {})
   
   // E模块：生成状态
   const [isGenerating, setIsGenerating] = useState(false)
@@ -160,7 +164,7 @@ const AddDishPage: FC = () => {
       })
       manager.onStop((res) => {
         setIsRecording(false)
-        if (!isCancelling) {
+        if (!isCancellingRef.current) {
           handleVoiceInput(res.tempFilePath)
         }
         setIsCancelling(false)
@@ -172,6 +176,28 @@ const AddDishPage: FC = () => {
         setIsCancelling(false)
       })
       recorderManagerRef.current = manager
+    } else {
+      // H5 端：使用 H5Recorder
+      h5RecorderRef.current = new H5Recorder({
+        onStart: () => {
+          setIsRecording(true)
+        },
+        onSuccess: (blob) => {
+          setIsRecording(false)
+          if (!isCancellingRef.current) {
+            handleH5VoiceInputRef.current(blob)
+          }
+          setIsCancelling(false)
+        },
+        onError: (error) => {
+          Taro.showToast({ title: error.message || '录音失败', icon: 'none' })
+          setIsRecording(false)
+          setIsCancelling(false)
+        },
+        onStop: () => {
+          setIsRecording(false)
+        }
+      })
     }
   }, [isWeapp])
 
@@ -314,6 +340,38 @@ const AddDishPage: FC = () => {
     }
   }
 
+  const handleH5VoiceInput = async (audioBlob: Blob) => {
+    try {
+      const base64 = await blobToBase64(audioBlob)
+
+      console.log('发送语音识别请求...')
+      const asrResult = await Network.request({
+        url: '/api/voice/recognize',
+        method: 'POST',
+        data: { audioData: base64 }
+      })
+
+      console.log('语音识别完整响应:', JSON.stringify(asrResult, null, 2))
+      const recognizedText = (asrResult as any).data?.data?.text || ''
+      console.log('解析出的识别文本:', recognizedText)
+      
+      if (recognizedText) {
+        addMessage('user', recognizedText)
+      } else {
+        Taro.showToast({ title: '未识别到语音内容', icon: 'none' })
+      }
+    } catch (error) {
+      console.error('语音识别失败', error)
+      Taro.showToast({ title: '语音识别失败', icon: 'none' })
+    }
+  }
+
+  // 更新 ref
+  useEffect(() => {
+    handleH5VoiceInputRef.current = handleH5VoiceInput
+    isCancellingRef.current = isCancelling
+  }, [handleH5VoiceInput, isCancelling])
+
   const sendMessage = async () => {
     if (!textInput.trim()) return
 
@@ -323,21 +381,46 @@ const AddDishPage: FC = () => {
   }
 
   // 录音控制
-  const startRecording = () => {
-    if (!isWeapp) {
-      Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
-      return
-    }
+  const startRecording = async () => {
     setIsCancelling(false)
-    recorderManagerRef.current?.start({
-      format: 'wav',
-      sampleRate: 16000,
-      numberOfChannels: 1
-    })
+    
+    if (isWeapp) {
+      recorderManagerRef.current?.start({
+        format: 'wav',
+        sampleRate: 16000,
+        numberOfChannels: 1
+      })
+    } else {
+      // H5 端
+      if (!H5Recorder.isSupported()) {
+        Taro.showToast({ title: '当前浏览器不支持录音', icon: 'none' })
+        return
+      }
+      
+      try {
+        await h5RecorderRef.current?.start()
+      } catch (error) {
+        console.error('启动录音失败:', error)
+      }
+    }
   }
 
   const stopRecording = () => {
-    recorderManagerRef.current?.stop()
+    if (isWeapp) {
+      recorderManagerRef.current?.stop()
+    } else {
+      h5RecorderRef.current?.stop()
+    }
+  }
+
+  const cancelRecording = () => {
+    if (isWeapp) {
+      recorderManagerRef.current?.stop()
+    } else {
+      h5RecorderRef.current?.cancel()
+    }
+    setIsCancelling(false)
+  }
   }
 
   const handleTouchMove = (e: any) => {

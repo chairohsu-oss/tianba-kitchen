@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import { Mic, Keyboard, Send, ChefHat, User, Loader, ImagePlus, Plus, ShoppingCart } from 'lucide-react-taro'
 import { Network } from '@/network'
+import { H5Recorder, blobToBase64 } from '@/utils/h5-recorder'
 import type { FC } from 'react'
 import WechatLoginModal from '@/components/WechatLoginModal'
 import './index.css'
@@ -33,8 +34,10 @@ const HomePage: FC = () => {
   const [textInput, setTextInput] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const recorderManagerRef = useRef<Taro.RecorderManager | null>(null)
+  const h5RecorderRef = useRef<H5Recorder | null>(null)
   const isCancellingRef = useRef(false)
   const handleVoiceInputRef = useRef<(audioPath: string) => void>(() => {})
+  const handleH5VoiceInputRef = useRef<(audioBlob: Blob) => void>(() => {})
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -119,6 +122,7 @@ const HomePage: FC = () => {
   // 初始化录音管理器
   useEffect(() => {
     if (isWeapp) {
+      // 小程序端：使用 Taro RecorderManager
       const manager = Taro.getRecorderManager()
       manager.onStart(() => {
         console.log('录音开始')
@@ -148,6 +152,35 @@ const HomePage: FC = () => {
         setIsCancelling(false)
       })
       recorderManagerRef.current = manager
+    } else {
+      // H5 端：使用 H5Recorder
+      h5RecorderRef.current = new H5Recorder({
+        onStart: () => {
+          console.log('H5 录音开始')
+          setIsRecording(true)
+        },
+        onSuccess: (blob) => {
+          console.log('H5 录音成功, blob size:', blob.size)
+          setIsRecording(false)
+          if (!isCancellingRef.current) {
+            handleH5VoiceInputRef.current(blob)
+          }
+          setIsCancelling(false)
+        },
+        onError: (error) => {
+          console.error('H5 录音错误:', error)
+          Taro.showToast({
+            title: error.message || '录音失败',
+            icon: 'none',
+            duration: 2000
+          })
+          setIsRecording(false)
+          setIsCancelling(false)
+        },
+        onStop: () => {
+          setIsRecording(false)
+        }
+      })
     }
   }, [isWeapp])
 
@@ -413,7 +446,7 @@ const HomePage: FC = () => {
     }
   }
 
-  // 处理语音输入
+  // 处理语音输入（小程序端）
   const handleVoiceInput = useCallback(async (audioPath: string) => {
     // 防止重复调用 - 使用 ref 检查避免依赖问题
     if (isLoadingRef.current) {
@@ -452,10 +485,49 @@ const HomePage: FC = () => {
     }
   }, [addMessage, chat])
 
+  // 处理语音输入（H5端）
+  const handleH5VoiceInput = useCallback(async (audioBlob: Blob) => {
+    // 防止重复调用
+    if (isLoadingRef.current) {
+      console.log('正在处理中，忽略新的语音输入')
+      return
+    }
+    
+    setIsLoading(true)
+    try {
+      // 将 Blob 转换为 Base64
+      const base64 = await blobToBase64(audioBlob)
+
+      console.log('发送语音识别请求...')
+      const asrResult = await Network.request({
+        url: '/api/voice/recognize',
+        method: 'POST',
+        data: { audioData: base64 }
+      })
+
+      console.log('语音识别完整响应:', JSON.stringify(asrResult, null, 2))
+      const recognizedText = (asrResult as any).data?.data?.text || ''
+      console.log('解析出的识别文本:', recognizedText)
+      
+      if (recognizedText) {
+        addMessage('user', recognizedText)
+        await chat(recognizedText)
+      } else {
+        Taro.showToast({ title: '未识别到语音内容', icon: 'none' })
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error('语音识别失败', error)
+      Taro.showToast({ title: '语音识别失败', icon: 'none' })
+      setIsLoading(false)
+    }
+  }, [addMessage, chat])
+
   // 更新 ref
   useEffect(() => {
     handleVoiceInputRef.current = handleVoiceInput
-  }, [handleVoiceInput])
+    handleH5VoiceInputRef.current = handleH5VoiceInput
+  }, [handleVoiceInput, handleH5VoiceInput])
 
   // 同步 isCancelling 到 ref
   useEffect(() => {
@@ -464,11 +536,6 @@ const HomePage: FC = () => {
 
   // 开始录音
   const startRecording = async () => {
-    if (!isWeapp) {
-      Taro.showToast({ title: 'H5端暂不支持录音，请使用键盘输入', icon: 'none' })
-      return
-    }
-    
     // 如果正在录音，先停止
     if (isRecording) {
       console.log('已在录音中，忽略重复开始')
@@ -481,42 +548,50 @@ const HomePage: FC = () => {
       return
     }
     
-    try {
-      // 先请求录音权限
-      const authResult = await Taro.authorize({ scope: 'scope.record' })
-      console.log('录音权限授权结果:', authResult)
-    } catch (authError: any) {
-      console.error('录音权限请求失败:', authError)
-      // 如果用户之前拒绝过，引导用户去设置页面开启权限
-      if (authError?.errMsg?.includes('auth deny')) {
-        Taro.showModal({
-          title: '需要录音权限',
-          content: '请在设置中开启麦克风权限',
-          confirmText: '去设置',
-          success: (res) => {
-            if (res.confirm) {
-              Taro.openSetting()
-            }
-          }
-        })
-        return
-      }
-    }
-    
     setIsCancelling(false)
     console.log('开始录音...')
     
     try {
-      // 微信小程序录音参数配置
-      // 参考：https://developers.weixin.qq.com/miniprogram/dev/api/media/recorder/RecorderManager.start.html
-      recorderManagerRef.current?.start({
-        duration: 60000,        // 最长录音时间60秒
-        sampleRate: 16000,     // 采样率，ASR支持16000
-        numberOfChannels: 1,   // 单声道
-        encodeBitRate: 48000,  // 比特率
-        format: 'wav',         // 音频格式
-        audioSource: 'auto'    // 音频输入源
-      })
+      if (isWeapp) {
+        // 小程序端：请求录音权限
+        try {
+          await Taro.authorize({ scope: 'scope.record' })
+          console.log('小程序录音权限已授权')
+        } catch (authError: any) {
+          console.error('录音权限请求失败:', authError)
+          if (authError?.errMsg?.includes('auth deny')) {
+            Taro.showModal({
+              title: '需要录音权限',
+              content: '请在设置中开启麦克风权限',
+              confirmText: '去设置',
+              success: (res) => {
+                if (res.confirm) {
+                  Taro.openSetting()
+                }
+              }
+            })
+            return
+          }
+        }
+        
+        // 微信小程序录音参数配置
+        recorderManagerRef.current?.start({
+          duration: 60000,        // 最长录音时间60秒
+          sampleRate: 16000,     // 采样率，ASR支持16000
+          numberOfChannels: 1,   // 单声道
+          encodeBitRate: 48000,  // 比特率
+          format: 'wav',         // 音频格式
+          audioSource: 'auto'    // 音频输入源
+        })
+      } else {
+        // H5 端：使用 H5Recorder
+        if (!H5Recorder.isSupported()) {
+          Taro.showToast({ title: '当前浏览器不支持录音', icon: 'none' })
+          return
+        }
+        
+        await h5RecorderRef.current?.start()
+      }
     } catch (startError) {
       console.error('启动录音失败:', startError)
       Taro.showToast({ title: '启动录音失败', icon: 'none' })
@@ -526,7 +601,24 @@ const HomePage: FC = () => {
   // 停止录音
   const stopRecording = () => {
     console.log('停止录音...')
-    recorderManagerRef.current?.stop()
+    
+    if (isWeapp) {
+      recorderManagerRef.current?.stop()
+    } else {
+      h5RecorderRef.current?.stop()
+    }
+  }
+
+  // 取消录音
+  const cancelRecording = () => {
+    console.log('取消录音...')
+    
+    if (isWeapp) {
+      recorderManagerRef.current?.stop()
+    } else {
+      h5RecorderRef.current?.cancel()
+    }
+    setIsCancelling(false)
   }
 
   // 触摸移动检测是否要取消
@@ -548,7 +640,13 @@ const HomePage: FC = () => {
 
   const handleTouchEnd = () => {
     if (isRecording) {
-      stopRecording()
+      if (isCancelling) {
+        // 上滑取消
+        cancelRecording()
+      } else {
+        // 正常停止
+        stopRecording()
+      }
     }
   }
 

@@ -1,0 +1,62 @@
+edition: 1.0.0
+name: tianba-kitchen
+access: default
+
+vars:
+  region: cn-hangzhou  # 可根据需要修改：cn-shanghai, cn-beijing, cn-shenzhen 等
+  serviceName: tianba-kitchen-service
+  functionName: tianba-kitchen-api
+
+services:
+  tianba-kitchen-api:
+    component: fc
+    props:
+      region: ${vars.region}
+      service:
+        name: ${vars.serviceName}
+        description: 天霸私厨后端API服务
+        internetAccess: true  # 允许访问公网（调用微信API等）
+        
+      function:
+        name: ${vars.functionName}
+        description: 天霸私厨 API 函数
+        runtime: custom-container  # 使用容器镜像
+        memorySize: 512  # 内存大小，单位MB
+        timeout: 60  # 超时时间，单位秒
+        cpu: 0.5  # CPU 核数
+        instanceConcurrency: 10  # 单实例并发数
+        customContainerConfig:
+          image: registry.cn-hangzhou.aliyuncs.com/tianba-kitchen/api:latest  # 镜像地址，需要修改
+          command: '["node"]'
+          args: '["dist/main.js"]'
+          acceleration: true  # 开启镜像加速
+          accelerationType: Default
+        environmentVariables:
+          NODE_ENV: production
+          PORT: 9000
+          # 以下环境变量需要在部署时配置
+          # SUPABASE_URL: ${env.SUPABASE_URL}
+          # SUPABASE_ANON_KEY: ${env.SUPABASE_ANON_KEY}
+          # COZE_API_KEY: ${env.COZE_API_KEY}
+          
+      triggers:
+        - name: http-trigger
+          type: http
+          config:
+            authType: anonymous  # 匿名访问
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - HEAD
+              - OPTIONS
+              
+      customDomains:
+        - domainName: auto  # 自动生成域名，也可以配置自定义域名
+          protocol: HTTP,HTTPS
+          routeConfigs:
+            - path: '/*'
+              serviceName: ${vars.serviceName}
+              functionName: ${vars.functionName}
