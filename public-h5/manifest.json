@@ -4,8 +4,8 @@
   "description": "家庭智慧烹饪助手，AI推荐菜品，轻松管理家庭菜单",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#F97316",
+  "theme_color": "#F97316",
   "orientation": "portrait",
   "scope": "/",
   "lang": "zh-CN",
@@ -97,5 +97,9 @@
     }
   ],
   "related_applications": [],
-  "display_override": ["window-controls-overlay", "standalone", "browser"]
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "apple_touch_icon": "/icons/icon-192.png",
+  "apple_mobile_web_app_capable": "yes",
+  "apple_mobile_web_app_status_bar_style": "black-translucent",
+  "apple_mobile_web_app_title": "天霸私厨"
 }
