@@ -9,19 +9,32 @@ import './index.css'
 // 缓存版本号 - 修改此值可强制清除旧缓存
 const CACHE_VERSION = '2026-03-21-v4'
 
-// 超时时间（毫秒）
-const REQUEST_TIMEOUT = 5000
-
 const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isChecking, setIsChecking] = useState(true) // 是否正在检查登录状态
+  const [checkTimer, setCheckTimer] = useState(2) // 倒计时
 
   // 检查是否已经登录
   useEffect(() => {
+    // 立即开始倒计时，2秒后强制显示表单
+    const timer = setInterval(() => {
+      setCheckTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          setIsChecking(false)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    // 异步检查登录状态（不阻塞UI）
     checkLoginStatus()
+
+    return () => clearInterval(timer)
   }, [])
 
   const checkLoginStatus = async () => {
@@ -35,7 +48,7 @@ const LoginPage: FC = () => {
         console.log('缓存已清除，新版本:', CACHE_VERSION)
       }
       
-      // 从本地存储获取登录状态
+      // 从本地存储获取登录状态（快速检查，不等待网络）
       const isLoggedIn = Taro.getStorageSync('tianba_logged_in')
       const loginTime = Taro.getStorageSync('tianba_login_time')
       
@@ -46,14 +59,15 @@ const LoginPage: FC = () => {
         const thirtyDays = 30 * 24 * 60 * 60 * 1000
         
         if (now - loginTimestamp < thirtyDays) {
+          // 本地验证通过，直接跳转
           Taro.switchTab({ url: '/pages/home/index' })
           return
         }
       }
       
-      // 检查后端验证状态（带超时）
+      // 网络验证（超时3秒）
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('请求超时')), REQUEST_TIMEOUT)
+        setTimeout(() => reject(new Error('请求超时')), 3000)
       })
       
       const requestPromise = Network.request({
@@ -72,9 +86,6 @@ const LoginPage: FC = () => {
     } catch (err) {
       // 网络请求失败或超时，显示登录页面
       console.log('检查登录状态失败:', err)
-    } finally {
-      // 无论成功失败，都停止检查状态
-      setIsChecking(false)
     }
   }
 
@@ -137,8 +148,17 @@ const LoginPage: FC = () => {
       {isChecking && (
         <View className="checking-overlay">
           <View className="checking-content">
-            <Loader size={32} color="#F97316" className="animate-spin" />
+            <View className="checking-spinner">
+              <Loader size={32} color="#F97316" className="animate-spin" />
+            </View>
             <Text className="checking-text">正在加载...</Text>
+            <View className="checking-progress">
+              <View 
+                className="checking-progress-bar" 
+                style={{ width: `${((2 - checkTimer) / 2) * 100}%` }}
+              />
+            </View>
+            <Text className="checking-hint">{checkTimer}秒后显示登录表单</Text>
           </View>
         </View>
       )}
