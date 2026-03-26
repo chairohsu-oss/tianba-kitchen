@@ -8,9 +8,10 @@ import { UploadModule } from './modules/upload/upload.module'
 import { OrderModule } from './modules/order/order.module'
 import { UserModule } from './modules/user/user.module'
 import { AuthModule } from './modules/auth/auth.module'
+import { WechatAuthModule } from './wechat-auth/wechat-auth.module'
 
 @Module({
-  imports: [DishModule, AiModule, VoiceModule, UploadModule, OrderModule, UserModule, AuthModule],
+  imports: [DishModule, AiModule, VoiceModule, UploadModule, OrderModule, UserModule, AuthModule, WechatAuthModule],
   controllers: [AppController],
   providers: [AppService],
 })

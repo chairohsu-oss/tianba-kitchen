@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { Mic, Keyboard, Send, ChefHat, User, Loader, ImagePlus, Plus, ShoppingCart } from 'lucide-react-taro'
 import { Network } from '@/network'
 import type { FC } from 'react'
+import WechatLoginModal from '@/components/WechatLoginModal'
 import './index.css'
 
 // 推荐菜品类型
@@ -48,6 +49,10 @@ const HomePage: FC = () => {
   
   // 当前用户信息
   const [currentUser, setCurrentUser] = useState<{ id: string; nickname: string; avatarUrl: string; role: string } | null>(null)
+  
+  // 微信登录弹窗
+  const [showWechatLogin, setShowWechatLogin] = useState(false)
+  const [pendingDish, setPendingDish] = useState<RecommendedDish | null>(null)
 
   const scrollViewRef = useRef<string>('')
   const isLoadingRef = useRef(false)
@@ -300,6 +305,15 @@ const HomePage: FC = () => {
 
   // 添加菜品到待确认菜单
   const addDishToOrder = async (dish: RecommendedDish) => {
+    // 检查是否已绑定微信
+    const wechatBound = Taro.getStorageSync('tianba_wechat_bound')
+    if (!wechatBound) {
+      // 未绑定微信，弹出登录框
+      setPendingDish(dish)
+      setShowWechatLogin(true)
+      return
+    }
+    
     try {
       // 获取当前用户信息
       let user: { id: string; nickname: string; avatarUrl: string } | null = null
@@ -366,6 +380,14 @@ const HomePage: FC = () => {
 
   // 批量添加菜品到菜单
   const addAllDishesToOrder = async (dishes: RecommendedDish[]) => {
+    // 检查是否已绑定微信
+    const wechatBound = Taro.getStorageSync('tianba_wechat_bound')
+    if (!wechatBound) {
+      // 未绑定微信，弹出登录框（提示用户先登录）
+      setShowWechatLogin(true)
+      return
+    }
+    
     Taro.showModal({
       title: '确认点菜',
       content: `将添加 ${dishes.length} 道菜到待确认菜单`,
@@ -377,6 +399,18 @@ const HomePage: FC = () => {
         }
       }
     })
+  }
+  
+  // 微信登录成功回调
+  const handleWechatLoginSuccess = async (user: any) => {
+    console.log('微信登录成功:', user)
+    setShowWechatLogin(false)
+    
+    // 如果有待下单的菜品，继续下单
+    if (pendingDish) {
+      await addDishToOrder(pendingDish)
+      setPendingDish(null)
+    }
   }
 
   // 处理语音输入
@@ -523,6 +557,13 @@ const HomePage: FC = () => {
       className="flex flex-col h-screen bg-white overflow-hidden"
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
     >
+      {/* 微信登录弹窗 */}
+      <WechatLoginModal 
+        visible={showWechatLogin}
+        onClose={() => setShowWechatLogin(false)}
+        onSuccess={handleWechatLoginSuccess}
+      />
+      
       {/* 录音状态遮罩层 */}
       {isRecording && (
         <View 
